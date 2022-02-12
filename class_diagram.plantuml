@@ -1,0 +1,18 @@
+@startuml
+!define DARKGREEN
+!includeurl https://raw.githubusercontent.com/Drakemor/RedDress-PlantUML/master/style.puml
+
+class BaseSong {
+    name: str
+    artist: str
+    year: int
+    bpm: int
+    played_count: int
+    rating: int
+    genre: str
+    location: str
+    date_added: datetime.date
+    __post_init__()
+}
+
+@enduml
