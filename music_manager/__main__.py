@@ -23,15 +23,16 @@ class BaseSong(ABC):
     played_count: int = 0
     rating: int = 0
     year: int = datetime.date.today().year
-    date_added: '_normalize_datetime' = datetime.date.today()
+    _date_added: '_normalize_datetime' = datetime.date.today()
 
     def __str__(self):
         return f"{self.artist} - {self.name:<40} {self.year:<6} {'⭐️' * int(float(self.rating) / 100 * 5) if self.rating else ''}"
 
     def __init__(self, **kwargs: Dict[Annotated[str, "Song field"], Annotated[Any, "Value"]]):
         for k, v in kwargs.items():
-            normalized_field = self._normalize_field(k)
-            if normalized_field not in (_.name for _ in fields(self)):
+            if not (normalized_field := self._normalize_field(k)):
+                normalized_field = k
+            if normalized_field not in (_.name if not _.name.startswith('_') else _.name[1:] for _ in fields(self)):
                 continue
             setattr(self, normalized_field, self._cast(normalized_field, v))
 
@@ -40,21 +41,39 @@ class BaseSong(ABC):
             if not callable(func) and isinstance(func, str):
                 func = getattr(self, func)
             return func(value)
+        else:
+            return value
 
+    @property
+    def date_added(self):
+        return self._date_added
+
+    @date_added.setter
+    def date_added(self, value):
+        if not isinstance(value, datetime.datetime):
+            raise TypeError('The value has to be of type datetime')
+        self._date_added = value
 
     @staticmethod
     @abstractmethod
     def _normalize_field(
             foreign_field_name: Annotated[str, "Field name to be converted"]
     ) -> Annotated[str, "Dataclass field name"]:
-        """Take foreign field name and map to field in dataclass."""
+        """
+        Take foreign field name and map to field in dataclass.
+        A typical pattern use a dict-lookup for the field.
+        """
 
     @staticmethod
     @abstractmethod
     def _normalize_datetime(
             foreign_datetime: Annotated[str, "Datetime text to be converted"]
     ) -> datetime.datetime:
-        """Take string and turn this into datetime."""
+        """
+        Take string and turn this into datetime.
+        Typical service returns in string and needs to be casted properly.
+        """
+
 
 
 class TunesSong(BaseSong):
@@ -70,6 +89,19 @@ class TunesSong(BaseSong):
         return datetime.datetime.strptime(foreign_datetime, '%Y-%m-%dT%H:%M:%SZ')
 
 
+class MacOSMusicSong(BaseSong):
+
+    @staticmethod
+    def _normalize_datetime(foreign_datetime: Annotated[str, "Datetime text to be converted"]) -> datetime.datetime:
+        pass
+
+    @staticmethod
+    def _normalize_field(foreign_field_name: Annotated[str, "Field name to be converted"]) -> Annotated[
+        str, "Dataclass field name"]:
+        pass
+
+
+
 class SongsReader(ABC):
     """Abstract base class for adapter reading songs from service"""
 
@@ -83,6 +115,8 @@ class SongsReader(ABC):
 
 
 class TunesFileReader(SongsReader):
+    """SongsReader for iTunes"""
+
     def __init__(self, xml="/Users/edo/Music/iTunes Library.xml"):
         self.local_fields = [
             "Year",
@@ -97,7 +131,7 @@ class TunesFileReader(SongsReader):
         ]
         self.tree = ET.parse(xml).getroot()
 
-    def yield_song(self):
+    def yield_song(self) -> Iterable[BaseSong]:
         s = self.tree[0].findall("dict")[0]
         for item in s:
             try:
@@ -112,33 +146,29 @@ class TunesFileReader(SongsReader):
                 yield TunesSong(**key_values)
 
 
-class MusicClientParser(SongsReader):
+class MacOSMusicReader(SongsReader):
+    """SongsReader for MacOS Music application"""
+
     def __init__(self):
         self.c = Client()
-        r = self.get_all_ratings()
 
-    def get_current_attribute(self, attribute):
-        return self.c.current_track[attribute]
-
-    def yield_song(self):
-        songs = []
-        rating_list = []
+    def yield_song(self) -> Iterable[BaseSong]:
         self.jump_song(-1)
         last_song_index = self.get_current_index()
         for i in range(1, last_song_index):
-            logger.info(f"processing song {i}/{last_song_index}")
-            try:
-                rating = self.get_current_attribute(
-                    "rating"
-                )  # TODO: get all attributes
-            except TypeError:
-                logger.debug(f"skipping {i}")
-                continue
-            path = self.get_path_name()
-            song = self.get_song_name()
-            songs.append([rating, song, path])
             self.next_song()
-        return rating_list
+            self.c.volume = 0
+            self.c.current_track.refresh()
+            kv = {}
+            for k in self.c.current_track.keys():
+                try:
+                    kv[k] = self.c.current_track[k]
+                except (TypeError, KeyError):
+                    continue
+            yield MacOSMusicSong(**kv)
+
+    def get_current_attribute(self, attribute):
+        return self.c.current_track[attribute]
 
     def set_current_rating(self, rating: int):
         self.c.current_track.__setattr__("rating", rating)
@@ -160,7 +190,7 @@ class MusicClientParser(SongsReader):
 
 
 if __name__ == "__main__":
-    f = TunesFileReader()
-    for s in f:
-        print(s)
-    # m = MusicClientParser()
+    # f = TunesFileReader()
+    m = MacOSMusicReader()
+    for song in m:
+        print(song)
