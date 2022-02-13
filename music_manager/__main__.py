@@ -6,10 +6,16 @@ import IReadiTunes as irit
 import pickle
 from abc import ABC, abstractmethod
 import xml.etree.ElementTree as ET
-from collections import namedtuple
+from collections import namedtuple, defaultdict
 from dataclasses import dataclass, fields, field
 import datetime
+from tinydb import TinyDB, Query
 from typing import Optional
+
+
+class AdapterParameterError(Exception):
+    """Error while parsing parameter for adapter """
+
 
 @dataclass
 class BaseSong(ABC):
@@ -75,11 +81,11 @@ class BaseSong(ABC):
         """
 
 
-
 class TunesSong(BaseSong):
 
     @staticmethod
-    def _normalize_field(foreign_field_name: Annotated[str, "Field name to be converted"]) -> Annotated[str, "Dataclass field name"]:
+    def _normalize_field(foreign_field_name: Annotated[str, "Field name to be converted"]) -> Annotated[
+        str, "Dataclass field name"]:
         fk = foreign_field_name.lower().replace(' ', '_')
         t = {'play_count': 'played_count'}
         return t.get(fk, fk)
@@ -101,8 +107,7 @@ class MacOSMusicSong(BaseSong):
         pass
 
 
-
-class SongsReader(ABC):
+class BaseReadAdapter(ABC):
     """Abstract base class for adapter reading songs from service"""
 
     def __iter__(self):
@@ -114,10 +119,10 @@ class SongsReader(ABC):
         """Return iterable for all songs"""
 
 
-class TunesFileReader(SongsReader):
-    """SongsReader for iTunes"""
+class TunesReadAdapter(BaseReadAdapter):
+    """Read from iTunes"""
 
-    def __init__(self, xml="/Users/edo/Music/iTunes Library.xml"):
+    def __init__(self, xml: Annotated[str, "xml file from iTunes"] ="/Users/edo/Music/iTunes Library.xml"):
         self.local_fields = [
             "Year",
             "BPM",
@@ -146,8 +151,8 @@ class TunesFileReader(SongsReader):
                 yield TunesSong(**key_values)
 
 
-class MacOSMusicReader(SongsReader):
-    """SongsReader for MacOS Music application"""
+class MacOSMusicReadAdapter(BaseReadAdapter):
+    """Read from MacOS Music application"""
 
     def __init__(self):
         self.c = Client()
@@ -189,8 +194,53 @@ class MacOSMusicReader(SongsReader):
         return self.c.current_track["index"]
 
 
+class BaseWriteAdapter(ABC):
+    """Abstract base class for adapter writing songs to service"""
+
+
+class JsonWriteAdapter(BaseWriteAdapter):
+    """Write to JSON"""
+
+    def __init__(self, json: str='music.json') -> None:
+        self.db = TinyDB(json)
+
+    def write(self, song: BaseSong):
+        self.db.insert(song)
+
+
+def get_class_arguments(sub_class) -> Dict:
+    args_with_annotation = {}
+    args = [_ for _ in sub_class.__init__.__code__.co_varnames if _ != 'self']
+    for arg in args:
+        try:
+            annotation = sub_class.__init__.__annotations__[arg].__metadata__
+        except AttributeError:
+            annotation = ''
+        try:
+            type_ = next(iter(sub_class.__init__.__annotations__[arg].__dict__['__args__']), None)
+        except KeyError:
+            raise AdapterParameterError(f'{sub_class.__name__} lack type annotation for parameter "{arg}"') from None
+        args_with_annotation[arg] = (type_, annotation)
+    return args_with_annotation
+
+
+def get_adaptors(base_read_class: BaseReadAdapter = BaseReadAdapter, base_write_class=BaseWriteAdapter) -> Dict[str, str]:
+    adaptors = defaultdict(list)
+    for type_, base_class in {'readers': base_read_class, 'writers': base_write_class}.items():
+        for sub_class in base_class.__subclasses__():
+            name = sub_class.__name__
+            doc = sub_class.__doc__
+            args = get_class_arguments(sub_class)
+            adaptors[type_].append({'class': sub_class, 'name': name, 'args': args, 'doc': doc})
+    return adaptors
+
+
 if __name__ == "__main__":
-    # f = TunesFileReader()
-    m = MacOSMusicReader()
-    for song in m:
+    print(get_adaptors())
+    f = TunesReadAdapter()
+    for song in f:
         print(song)
+
+    # m = MacOSMusicReader()
+    # for song in m:
+    #     print(song)
