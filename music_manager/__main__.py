@@ -14,7 +14,7 @@ from typing import Optional
 
 
 class AdapterParameterError(Exception):
-    """Error while parsing parameter for adapter """
+    """Error while parsing parameter for adapter"""
 
 
 @dataclass
@@ -29,16 +29,21 @@ class BaseSong(ABC):
     played_count: int = 0
     rating: int = 0
     year: int = datetime.date.today().year
-    _date_added: '_normalize_datetime' = datetime.date.today()
+    _date_added: "_normalize_datetime" = datetime.date.today()
 
     def __str__(self):
         return f"{self.artist} - {self.name:<40} {self.year:<6} {'⭐️' * int(float(self.rating) / 100 * 5) if self.rating else ''}"
 
-    def __init__(self, **kwargs: Dict[Annotated[str, "Song field"], Annotated[Any, "Value"]]):
+    def __init__(
+        self, **kwargs: Dict[Annotated[str, "Song field"], Annotated[Any, "Value"]]
+    ):
         for k, v in kwargs.items():
             if not (normalized_field := self._normalize_field(k)):
                 normalized_field = k
-            if normalized_field not in (_.name if not _.name.startswith('_') else _.name[1:] for _ in fields(self)):
+            if normalized_field not in (
+                _.name if not _.name.startswith("_") else _.name[1:]
+                for _ in fields(self)
+            ):
                 continue
             setattr(self, normalized_field, self._cast(normalized_field, v))
 
@@ -57,13 +62,13 @@ class BaseSong(ABC):
     @date_added.setter
     def date_added(self, value):
         if not isinstance(value, datetime.datetime):
-            raise TypeError('The value has to be of type datetime')
+            raise TypeError("The value has to be of type datetime")
         self._date_added = value
 
     @staticmethod
     @abstractmethod
     def _normalize_field(
-            foreign_field_name: Annotated[str, "Field name to be converted"]
+        foreign_field_name: Annotated[str, "Field name to be converted"]
     ) -> Annotated[str, "Dataclass field name"]:
         """
         Take foreign field name and map to field in dataclass.
@@ -73,7 +78,7 @@ class BaseSong(ABC):
     @staticmethod
     @abstractmethod
     def _normalize_datetime(
-            foreign_datetime: Annotated[str, "Datetime text to be converted"]
+        foreign_datetime: Annotated[str, "Datetime text to be converted"]
     ) -> datetime.datetime:
         """
         Take string and turn this into datetime.
@@ -82,28 +87,32 @@ class BaseSong(ABC):
 
 
 class TunesSong(BaseSong):
-
     @staticmethod
-    def _normalize_field(foreign_field_name: Annotated[str, "Field name to be converted"]) -> Annotated[
-        str, "Dataclass field name"]:
-        fk = foreign_field_name.lower().replace(' ', '_')
-        t = {'play_count': 'played_count'}
+    def _normalize_field(
+        foreign_field_name: Annotated[str, "Field name to be converted"]
+    ) -> Annotated[str, "Dataclass field name"]:
+        fk = foreign_field_name.lower().replace(" ", "_")
+        t = {"play_count": "played_count"}
         return t.get(fk, fk)
 
     @staticmethod
-    def _normalize_datetime(foreign_datetime: Annotated[str, "Datetime text to be converted"]) -> datetime.datetime:
-        return datetime.datetime.strptime(foreign_datetime, '%Y-%m-%dT%H:%M:%SZ')
+    def _normalize_datetime(
+        foreign_datetime: Annotated[str, "Datetime text to be converted"]
+    ) -> datetime.datetime:
+        return datetime.datetime.strptime(foreign_datetime, "%Y-%m-%dT%H:%M:%SZ")
 
 
 class MacOSMusicSong(BaseSong):
-
     @staticmethod
-    def _normalize_datetime(foreign_datetime: Annotated[str, "Datetime text to be converted"]) -> datetime.datetime:
+    def _normalize_datetime(
+        foreign_datetime: Annotated[str, "Datetime text to be converted"]
+    ) -> datetime.datetime:
         pass
 
     @staticmethod
-    def _normalize_field(foreign_field_name: Annotated[str, "Field name to be converted"]) -> Annotated[
-        str, "Dataclass field name"]:
+    def _normalize_field(
+        foreign_field_name: Annotated[str, "Field name to be converted"]
+    ) -> Annotated[str, "Dataclass field name"]:
         pass
 
 
@@ -122,7 +131,12 @@ class BaseReadAdapter(ABC):
 class TunesReadAdapter(BaseReadAdapter):
     """Read from iTunes"""
 
-    def __init__(self, xml: Annotated[str, "xml file from iTunes"] ="/Users/edo/Music/iTunes Library.xml"):
+    def __init__(
+        self,
+        xml: Annotated[
+            str, "xml file from iTunes"
+        ] = "/Users/edo/Music/iTunes Library.xml",
+    ):
         self.local_fields = [
             "Year",
             "BPM",
@@ -201,7 +215,7 @@ class BaseWriteAdapter(ABC):
 class JsonWriteAdapter(BaseWriteAdapter):
     """Write to JSON"""
 
-    def __init__(self, json: str='music.json') -> None:
+    def __init__(self, json: str = "music.json") -> None:
         self.db = TinyDB(json)
 
     def write(self, song: BaseSong):
@@ -210,28 +224,40 @@ class JsonWriteAdapter(BaseWriteAdapter):
 
 def get_class_arguments(sub_class) -> Dict:
     args_with_annotation = {}
-    args = [_ for _ in sub_class.__init__.__code__.co_varnames if _ != 'self']
+    args = [_ for _ in sub_class.__init__.__code__.co_varnames if _ != "self"]
     for arg in args:
+        if annotation := (sub_class.__init__.__annotations__.get(arg, {}) or ''):
+            if hasattr(annotation, '__metadata__'):
+                annotation = annotation.__metadata__
         try:
-            annotation = sub_class.__init__.__annotations__[arg].__metadata__
-        except AttributeError:
-            annotation = ''
-        try:
-            type_ = next(iter(sub_class.__init__.__annotations__[arg].__dict__['__args__']), None)
+            type_ = next(
+                iter(sub_class.__init__.__annotations__[arg].__dict__.get("__args__", [])),
+                None,
+            ) or sub_class.__init__.__annotations__.get(arg, None)  # In such not using typing.Annotated
         except KeyError:
-            raise AdapterParameterError(f'{sub_class.__name__} lack type annotation for parameter "{arg}"') from None
+            raise AdapterParameterError(
+                f'{sub_class.__name__} lack type annotation for parameter "{arg}"'
+            ) from None
         args_with_annotation[arg] = (type_, annotation)
     return args_with_annotation
 
 
-def get_adaptors(base_read_class: BaseReadAdapter = BaseReadAdapter, base_write_class=BaseWriteAdapter) -> Dict[str, str]:
+def get_adaptors(
+    base_read_class: BaseReadAdapter = BaseReadAdapter,
+    base_write_class=BaseWriteAdapter,
+) -> Dict[str, str]:
     adaptors = defaultdict(list)
-    for type_, base_class in {'readers': base_read_class, 'writers': base_write_class}.items():
+    for type_, base_class in {
+        "readers": base_read_class,
+        "writers": base_write_class,
+    }.items():
         for sub_class in base_class.__subclasses__():
             name = sub_class.__name__
             doc = sub_class.__doc__
             args = get_class_arguments(sub_class)
-            adaptors[type_].append({'class': sub_class, 'name': name, 'args': args, 'doc': doc})
+            adaptors[type_].append(
+                {"class": sub_class, "name": name, "args": args, "doc": doc}
+            )
     return adaptors
 
 
