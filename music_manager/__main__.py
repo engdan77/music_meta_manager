@@ -9,7 +9,9 @@ import xml.etree.ElementTree as ET
 from collections import namedtuple, defaultdict
 from dataclasses import dataclass, fields, field
 import datetime
-from tinydb import TinyDB, Query
+from tinydb import TinyDB, Query, JSONStorage
+from tinydb_serialization import SerializationMiddleware
+from tinydb_serialization.serializers import DateTimeSerializer
 from typing import Optional
 
 
@@ -34,6 +36,10 @@ class BaseSong(ABC):
     def __str__(self):
         return f"{self.artist} - {self.name:<40} {self.year:<6} {'⭐️' * int(float(self.rating) / 100 * 5) if self.rating else ''}"
 
+    def __iand__(self, item):
+        """Implement special operator song1 &= song2 for comparing name and album"""
+        return (self.name, self.album) == (item.name, item.albume)
+
     def __init__(
         self, **kwargs: Dict[Annotated[str, "Song field"], Annotated[Any, "Value"]]
     ):
@@ -48,7 +54,7 @@ class BaseSong(ABC):
             setattr(self, normalized_field, self._cast(normalized_field, v))
 
     def _cast(self, field_, value):
-        if func := next((_.type for _ in fields(self) if _.name == field_), None):
+        if func := next((_.type for _ in fields(self) if _.name in [field_, f'_{field_}']), None):  # check also private field
             if not callable(func) and isinstance(func, str):
                 func = getattr(self, func)
             return func(value)
@@ -216,15 +222,18 @@ class JsonWriteAdapter(BaseWriteAdapter):
     """Write to JSON"""
 
     def __init__(self, json: str = "music.json") -> None:
-        self.db = TinyDB(json)
+        serialization = SerializationMiddleware(JSONStorage)
+        serialization.register_serializer(DateTimeSerializer(), 'date')
+        self.db = TinyDB(json, storage=serialization)
 
     def write(self, song: BaseSong):
-        self.db.insert(song)
+        self.db.insert(vars(song))
 
 
 def get_class_arguments(sub_class) -> Dict:
     args_with_annotation = {}
-    args = [_ for _ in sub_class.__init__.__code__.co_varnames if _ != "self"]
+    c = sub_class.__init__.__code__
+    args = [_ for _ in c.co_varnames[:c.co_argcount] if _ != "self"]  # only get method parameters
     for arg in args:
         if annotation := (sub_class.__init__.__annotations__.get(arg, {}) or ''):
             if hasattr(annotation, '__metadata__'):
@@ -263,9 +272,12 @@ def get_adaptors(
 
 if __name__ == "__main__":
     print(get_adaptors())
-    f = TunesReadAdapter()
-    for song in f:
+    r = TunesReadAdapter()
+    w = JsonWriteAdapter()
+    for song in r:
         print(song)
+        w.write(song)
+        break
 
     # m = MacOSMusicReader()
     # for song in m:
