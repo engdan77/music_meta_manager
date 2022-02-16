@@ -125,6 +125,13 @@ class MacOSMusicSong(BaseSong):
 class BaseReadAdapter(ABC):
     """Abstract base class for adapter reading songs from service"""
 
+    def __enter__(self):
+        """Context mnanager"""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Override any requirements for closing service"""
+
     def __iter__(self):
         for song in self.yield_song():
             yield song
@@ -142,7 +149,11 @@ class TunesReadAdapter(BaseReadAdapter):
         xml: Annotated[
             str, "xml file from iTunes"
         ] = "/Users/edo/Music/iTunes Library.xml",
+        limit: Annotated[
+            int, "limit to number of songs",
+        ] = 0
     ):
+        self.limit = limit
         self.local_fields = [
             "Year",
             "BPM",
@@ -158,6 +169,8 @@ class TunesReadAdapter(BaseReadAdapter):
 
     def yield_song(self) -> Iterable[BaseSong]:
         s = self.tree[0].findall("dict")[0]
+        if self.limit:
+            s = s[:self.limit + 1]
         for item in s:
             try:
                 if item[0].text == "Track ID":
@@ -217,6 +230,13 @@ class MacOSMusicReadAdapter(BaseReadAdapter):
 class BaseWriteAdapter(ABC):
     """Abstract base class for adapter writing songs to service"""
 
+    def __enter__(self):
+        """Context mnanager"""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Override any requirements for closing service"""
+
 
 class JsonWriteAdapter(BaseWriteAdapter):
     """Write to JSON"""
@@ -225,6 +245,9 @@ class JsonWriteAdapter(BaseWriteAdapter):
         serialization = SerializationMiddleware(JSONStorage)
         serialization.register_serializer(DateTimeSerializer(), 'date')
         self.db = TinyDB(json, storage=serialization)
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.db.close()
 
     def write(self, song: BaseSong):
         self.db.insert(vars(song))
@@ -272,12 +295,12 @@ def get_adaptors(
 
 if __name__ == "__main__":
     print(get_adaptors())
-    r = TunesReadAdapter()
-    w = JsonWriteAdapter()
-    for song in r:
-        print(song)
-        w.write(song)
-        break
+    # r = TunesReadAdapter()
+    # w = JsonWriteAdapter()
+    with TunesReadAdapter(limit=5) as r, JsonWriteAdapter() as w:
+        for song in r:
+            print(song)
+            w.write(song)
 
     # m = MacOSMusicReader()
     # for song in m:
