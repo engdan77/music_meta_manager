@@ -36,9 +36,9 @@ class BaseSong(ABC):
     def __str__(self):
         return f"{self.artist} - {self.name:<40} {self.year:<6} {'⭐️' * int(float(self.rating) / 100 * 5) if self.rating else ''}"
 
-    def __iand__(self, item):
-        """Implement special operator song1 &= song2 for comparing name and album"""
-        return (self.name, self.album) == (item.name, item.albume)
+    def __matmul__(self, item):
+        """Override special operator song1 @ song2 for comparing name and album"""
+        return (self.name, self.artist) == (item.name, item.artist)
 
     def __init__(
         self, **kwargs: Dict[Annotated[str, "Song field"], Annotated[Any, "Value"]]
@@ -126,7 +126,7 @@ class BaseReadAdapter(ABC):
     """Abstract base class for adapter reading songs from service"""
 
     def __enter__(self):
-        """Context mnanager"""
+        """Context mananager"""
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -135,6 +135,13 @@ class BaseReadAdapter(ABC):
     def __iter__(self):
         for song in self.yield_song():
             yield song
+
+    def __contains__(self, target_song: BaseSong):
+        for source_song in iter(self):
+            if source_song @ target_song:
+                return True
+        else:
+            return False
 
     @abstractmethod
     def yield_song(self) -> Iterable[BaseSong]:
@@ -300,6 +307,7 @@ if __name__ == "__main__":
     with TunesReadAdapter(limit=5) as r, JsonWriteAdapter() as w:
         for song in r:
             print(song)
+            x = song in r
             w.write(song)
 
     # m = MacOSMusicReader()
