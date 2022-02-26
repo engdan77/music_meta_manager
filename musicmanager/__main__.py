@@ -1,10 +1,11 @@
-from typing import List, Tuple, Any, Annotated, Dict, Callable, Sequence, Iterable
+"""Program for migration music meta data between different services"""
 
+from typing import List, Tuple, Any, Annotated, Dict, Callable, Sequence, Iterable
 from pytunes.client import Client
 from loguru import logger
 import IReadiTunes as irit
 import pickle
-from abc import ABC, abstractmethod
+from abc import ABC, abstractmethod, ABCMeta
 import xml.etree.ElementTree as ET
 from collections import namedtuple, defaultdict
 from dataclasses import dataclass, fields, field
@@ -13,10 +14,20 @@ from tinydb import TinyDB, Query, JSONStorage
 from tinydb_serialization import SerializationMiddleware
 from tinydb_serialization.serializers import DateTimeSerializer
 from typing import Optional
+from argparse import ArgumentParser
 
 
 class AdapterParameterError(Exception):
     """Error while parsing parameter for adapter"""
+
+
+class Adapter:
+    """Dataclass for registering available ReadAdapters and WriteAdapters"""
+
+    sub_class: ABCMeta
+    name: str
+    args: dict
+    doc: str
 
 
 @dataclass
@@ -284,20 +295,25 @@ def get_class_arguments(sub_class) -> Dict:
 def get_adaptors(
     base_read_class: BaseReadAdapter = BaseReadAdapter,
     base_write_class=BaseWriteAdapter,
-) -> Dict[str, str]:
-    adaptors = defaultdict(list)
+) -> Dict[str, list[Adapter]]:
+    adapters = defaultdict(list)
     for type_, base_class in {
         "readers": base_read_class,
         "writers": base_write_class,
     }.items():
         for sub_class in base_class.__subclasses__():
-            name = sub_class.__name__
-            doc = sub_class.__doc__
-            args = get_class_arguments(sub_class)
-            adaptors[type_].append(
-                {"class": sub_class, "name": name, "args": args, "doc": doc}
-            )
-    return adaptors
+            adapter = Adapter()
+            adapter.sub_class = sub_class.__name__
+            adapter.doc = sub_class.__doc__
+            adapter.args = get_class_arguments(sub_class)
+            adapters[type_].append(adapter)
+    return adapters
+
+
+def adaptors_to_args(adapters: dict[str, list[Adapter]]) -> ArgumentParser:
+    # todo: enum for reader and writer
+    argparser = ArgumentParser(__package__, description=__doc__)
+
 
 
 if __name__ == "__main__":
