@@ -1,6 +1,6 @@
 """Program for migration music meta data between different services"""
 
-from typing import List, Tuple, Any, Annotated, Dict, Callable, Sequence, Iterable
+from typing import List, Tuple, Any, Annotated, Dict, Callable, Sequence, Iterable, Union
 from pytunes.client import Client
 from loguru import logger
 import IReadiTunes as irit
@@ -15,12 +15,24 @@ from tinydb_serialization import SerializationMiddleware
 from tinydb_serialization.serializers import DateTimeSerializer
 from typing import Optional
 from argparse import ArgumentParser
+from enum import Enum, auto
+
+
+class AdapterType(Enum):
+    """Enum for type of adapter"""
+    READER = auto()
+    WRITER = auto()
+
+    def __str__(self):
+        """Used for crafting command parameters"""
+        return self.name.lower()
 
 
 class AdapterParameterError(Exception):
     """Error while parsing parameter for adapter"""
 
 
+@dataclass
 class Adapter:
     """Dataclass for registering available ReadAdapters and WriteAdapters"""
 
@@ -135,6 +147,7 @@ class MacOSMusicSong(BaseSong):
 
 class BaseReadAdapter(ABC):
     """Abstract base class for adapter reading songs from service"""
+    adapter_type = AdapterType.READER
 
     def __enter__(self):
         """Context mananager"""
@@ -247,6 +260,7 @@ class MacOSMusicReadAdapter(BaseReadAdapter):
 
 class BaseWriteAdapter(ABC):
     """Abstract base class for adapter writing songs to service"""
+    adapter_type = AdapterType.WRITER
 
     def __enter__(self):
         """Context mnanager"""
@@ -259,7 +273,7 @@ class BaseWriteAdapter(ABC):
 class JsonWriteAdapter(BaseWriteAdapter):
     """Write to JSON"""
 
-    def __init__(self, json: str = "music.json") -> None:
+    def __init__(self, json: Annotated[str, "json file"] = "music.json") -> None:
         serialization = SerializationMiddleware(JSONStorage)
         serialization.register_serializer(DateTimeSerializer(), 'date')
         self.db = TinyDB(json, storage=serialization)
@@ -278,7 +292,7 @@ def get_class_arguments(sub_class) -> Dict:
     for arg in args:
         if annotation := (sub_class.__init__.__annotations__.get(arg, {}) or ''):
             if hasattr(annotation, '__metadata__'):
-                annotation = annotation.__metadata__
+                annotation = next(iter(annotation.__metadata__))
         try:
             type_ = next(
                 iter(sub_class.__init__.__annotations__[arg].__dict__.get("__args__", [])),
@@ -293,31 +307,35 @@ def get_class_arguments(sub_class) -> Dict:
 
 
 def get_adaptors(
-    base_read_class: BaseReadAdapter = BaseReadAdapter,
+    base_read_class=BaseReadAdapter,
     base_write_class=BaseWriteAdapter,
-) -> Dict[str, list[Adapter]]:
+) -> Dict[AdapterType, list[Adapter]]:
     adapters = defaultdict(list)
-    for type_, base_class in {
-        "readers": base_read_class,
-        "writers": base_write_class,
-    }.items():
+    for base_class in (base_read_class, base_write_class):
+        sub_class: Union[BaseReadAdapter, BaseWriteAdapter]
         for sub_class in base_class.__subclasses__():
-            adapter = Adapter()
-            adapter.sub_class = sub_class.__name__
-            adapter.doc = sub_class.__doc__
-            adapter.args = get_class_arguments(sub_class)
-            adapters[type_].append(adapter)
+            adapter = Adapter(sub_class, sub_class.__name__, get_class_arguments(sub_class), sub_class.__doc__)
+            adapters[sub_class.adapter_type].append(adapter)
     return adapters
 
 
-def adaptors_to_args(adapters: dict[str, list[Adapter]]) -> ArgumentParser:
+def adaptors_to_argparser(adapters: dict[AdapterType, list[Adapter]]) -> ArgumentParser:
     # todo: enum for reader and writer
-    argparser = ArgumentParser(__package__, description=__doc__)
-
+    parser = ArgumentParser(__package__, description=__doc__)
+    for adapter_type, adapters in adapters.items():
+        for adapter in adapters:
+            group = parser.add_mutually_exclusive_group()
+            group.add_argument(f'--{adapter.name}', action='store_true', help=adapter.doc)
+            for parameter_name, (parameter_type, parameter_help) in adapter.args.items():
+                group.add_argument(f'--{parameter_name}', type=parameter_type, help=f'[{adapter.name}] {parameter_help}' if isinstance(parameter_help, str) else '')
+    return parser
 
 
 if __name__ == "__main__":
-    print(get_adaptors())
+    adapters = get_adaptors()
+    parser = adaptors_to_argparser(adapters)
+    parser.parse_args()
+    exit()
     # r = TunesReadAdapter()
     # w = JsonWriteAdapter()
     with TunesReadAdapter(limit=5) as r, JsonWriteAdapter() as w:
