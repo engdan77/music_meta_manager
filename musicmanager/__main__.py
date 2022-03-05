@@ -44,7 +44,16 @@ class Adapter:
 
 @dataclass
 class BaseSong(ABC):
-    """Abstract class for individual services."""
+    """Abstract dataclass for normalizing song objects.
+    Inherit and implement to be used by concrete class inherited by BaseReadAdapter
+
+    _normalize_field(foreign_field_name: str) -> one_of_below_dataclass_field: str
+    Required if field names differs from dataclass
+    fields: name, location, artist, genre, played_count, rating, year, _date_Added
+
+    __normalize_datetime(foreign_datetime_format: str) -> datetime
+    Required for casting datetime
+    """
 
     name: str
     location: str
@@ -133,20 +142,28 @@ class TunesSong(BaseSong):
 
 class MacOSMusicSong(BaseSong):
     @staticmethod
-    def _normalize_datetime(
-        foreign_datetime: Annotated[str, "Datetime text to be converted"]
-    ) -> datetime.datetime:
-        pass
-
-    @staticmethod
     def _normalize_field(
         foreign_field_name: Annotated[str, "Field name to be converted"]
     ) -> Annotated[str, "Dataclass field name"]:
         pass
 
+    @staticmethod
+    def _normalize_datetime(
+        foreign_datetime: Annotated[str, "Datetime text to be converted"]
+    ) -> datetime.datetime:
+        pass
+
 
 class BaseReadAdapter(ABC):
-    """Abstract base class for adapter reading songs from service"""
+    """Abstract base class for adapter reading songs from service
+    Subclass and implement
+
+    __init__()
+    Depending on the service to read from
+
+    yield_song() -> Iterable[BaseSong]
+    This is the only concrete method required to allow context manager to work
+    """
     adapter_type = AdapterType.READER
 
     def __enter__(self):
@@ -259,7 +276,12 @@ class MacOSMusicReadAdapter(BaseReadAdapter):
 
 
 class BaseWriteAdapter(ABC):
-    """Abstract base class for adapter writing songs to service"""
+    """Abstract base class for adapter writing songs to service
+    Subclass and implement
+
+    write(song: BaseSong)
+    Single method for writing a song object subclassed from BaseSong
+    """
     adapter_type = AdapterType.WRITER
 
     def __enter__(self):
