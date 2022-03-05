@@ -160,7 +160,7 @@ class BaseReadAdapter(ABC):
         for song in self.yield_song():
             yield song
 
-    def __contains__(self, target_song: BaseSong):
+    def __contains__(self, target_song: BaseSong) -> bool:
         for source_song in iter(self):
             if source_song @ target_song:
                 return True
@@ -263,12 +263,15 @@ class BaseWriteAdapter(ABC):
     adapter_type = AdapterType.WRITER
 
     def __enter__(self):
-        """Context mnanager"""
+        """Context manager"""
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         """Override any requirements for closing service"""
 
+    @abstractmethod
+    def write(self, song: BaseSong):
+        """Method responsible for writing a song to service"""
 
 class JsonWriteAdapter(BaseWriteAdapter):
     """Write to JSON"""
