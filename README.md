@@ -1,5 +1,7 @@
 # Music Manager
 
+Description goes here...
+
 ## Class diagram
 
 ```mermaid
