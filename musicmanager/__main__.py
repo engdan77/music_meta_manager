@@ -34,7 +34,9 @@ class AdapterParameterError(Exception):
 
 @dataclass
 class Adapter:
-    """Dataclass for registering available ReadAdapters and WriteAdapters"""
+    """Dataclass for registering available ReadAdapters and WriteAdapters.
+    Used while dynamically creating CLI parameters.
+    """
 
     sub_class: ABCMeta
     name: str
