@@ -346,7 +346,7 @@ def get_adaptors(
     return adapters
 
 
-def adaptors_to_argparser(adapters: dict[AdapterType, list[Adapter]]) -> ArgumentParser:
+def adapters_to_argparser(adapters: dict[AdapterType, list[Adapter]]) -> ArgumentParser:
     # todo: enum for reader and writer
     parser = ArgumentParser(__package__, description=__doc__)
     for adapter_type, adapters in adapters.items():
@@ -360,11 +360,11 @@ def adaptors_to_argparser(adapters: dict[AdapterType, list[Adapter]]) -> Argumen
 
 if __name__ == "__main__":
     adapters = get_adaptors()
-    parser = adaptors_to_argparser(adapters)
+    parser = adapters_to_argparser(adapters)
     parser.parse_args()
-    exit()
-    # r = TunesReadAdapter()
-    # w = JsonWriteAdapter()
+    # exit()
+    r = TunesReadAdapter()
+    w = JsonWriteAdapter()
     with TunesReadAdapter(limit=5) as r, JsonWriteAdapter() as w:
         for song in r:
             print(song)
