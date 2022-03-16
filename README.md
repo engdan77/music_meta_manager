@@ -3,7 +3,9 @@
 Description goes here...
 
 
-## Creating concrete Song class
+## Sample for creating a custom Song class
+
+This is to be used together with your ReadAdapter or WriteAdapter by inherit BaseSong and implements the abstract methods.
 
 ```python
 class CsvSong(BaseSong):
@@ -26,13 +28,16 @@ class CsvSong(BaseSong):
 
 ```
 
-## Creating concrete Read class
+## Sample for creating a new ReadAdapter
+
+This is just to illustrate a sample using the above CsvSong.
+The docstring and annotation being used to generate help for CLI parameters.
 
 ```python
 class CsvReadAdapter(BaseReadAdapter):
     """Read from CSV"""
 
-    def __init__(self, csv_file: Annotated[str, "xml file from iTunes"]):
+    def __init__(self, csv_file: Annotated[str, "path to csv file"]):
         """
         Type annotation will automatically generate CLI parameter type and description.
         """
@@ -41,25 +46,72 @@ class CsvReadAdapter(BaseReadAdapter):
 
     def yield_song(self) -> Iterable[BaseSong]:
         """
-        Required concrete method that "has a" (composition) and returns a BaseSong. 
+        Required concrete method that "has a" (composition) and returns an Iterable of BaseSongs. 
         """
-        s = self.tree[0].findall("dict")[0]
-        if self.limit:
-            s = s[:self.limit + 1]
-        for item in s:
-            try:
-                if item[0].text == "Track ID":
-                    keys = item[::2]
-                    values = item[1::2]
-            except (ValueError, IndexError):
-                pass
-            else:
-                keys_values_el: list[tuple[Any, Any]] = list(zip(keys, values))
-                key_values = {i[0].text: i[1].text for i in keys_values_el}
-                yield TunesSong(**key_values)
-
+        with open(self.csv_file, 'r') as f:
+            for line in csv.reader(f, delimiter='\t'):
+                next_song = dict(zip(self.local_field, line))
+                yield(CsvSong(**next_song))
 ```
 
+## Sample for creating a new WriteAdapter
+
+```python
+class CsvWriteAdapter(BaseWriteAdapter):
+    """Write to CSV"""
+
+    def __init__(self, csv: Annotated[str, "path to csv file"]) -> None:
+        """
+        Create a constructor for this adapter
+        """
+        self.csv_file = open(csv, 'w')
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """
+        This is used for Context Manager assuring closing any resources
+        """
+        self.csv_file.close()
+
+    def write(self, song: BaseSong):
+        """
+        Require abstract method to allow the WriteAdapter to function.
+        Takes a BaseSong as argument and should write to the resource.
+        """
+        song_data = [song.name, song.artist, song.location]
+        self.write(f"{'\t'.join(song_data)}\n")
+```
+
+## Sofware design
+
+```mermaid
+flowchart BT
+
+subgraph adapter subclasses
+    JsonReadAdapter -. inherit .-> BaseReadAdapter
+    jsonread[/json/] -. annotation .-> JsonReadAdapter
+    TunesReadAdapter -. inherit .-> BaseReadAdapter
+    JsonWriteAdapter -. inherit .-> BaseWriteAdapter
+    jsonwrite[/json/] -. annotation .-> JsonWriteAdapter
+    xml[/xml/] -. annotation .-> TunesReadAdapter
+    limit[/limit/] -. annotation .-> TunesReadAdapter
+end
+BaseReadAdapter -- names/annotations --> ga
+BaseWriteAdapter -- names/annotations --> ga
+
+subgraph auto-generate CLI parameters
+    ga["get_adapters()"] --> ata["adapters_to_argparser()"]
+end
+ata --> cli(["$ music_manager --TunesReadAdapter --xml iTunes.xml --JsonWriter --json out.json"]) 
+
+style JsonReadAdapter fill:pink
+style TunesReadAdapter fill:pink
+style JsonWriteAdapter fill:pink
+style jsonread fill:pink
+style jsonwrite fill:pink
+style xml fill:pink
+style limit fill:pink
+style cli fill:yellow
+```
 
 ## Class diagram
 
@@ -93,7 +145,6 @@ class MacOSMusicSong {
   _normalize_datetime()
   _normalize_field()
 }
-
 
 %% Classes related to "services" using songs
 class BaseReadAdapter {
@@ -157,19 +208,18 @@ class Client {
 <<MusicLibrary>>
  }
 
-
 %% Relationships
-AdapterType --|> Enum
-Adapter ..> AdapterType : relates to
+AdapterType --|> Enum : inherits
+Adapter ..> AdapterType : knows of
 
-JsonWriteAdapter *-- AdapterType : composition
-JsonWriteAdapter *-- BaseSong : composition
-JsonWriteAdapter --> TinyDB 
+JsonWriteAdapter *-- AdapterType : has AdapterType
+JsonWriteAdapter *-- BaseSong : write songs
+JsonWriteAdapter --> TinyDB : write DB
 JsonWriteAdapter --|> BaseWriteAdapter : implements
 
 MacOSMusicSong --|> BaseSong
-MacOSMusicReadAdapter *-- AdapterType : composition
-MacOSMusicReadAdapter *-- MacOSMusicSong : composition
-MacOSMusicReadAdapter --> Client
+MacOSMusicReadAdapter *-- AdapterType : has AdapterType
+MacOSMusicReadAdapter *-- MacOSMusicSong : returns songs
+MacOSMusicReadAdapter --> Client : read songs
 MacOSMusicReadAdapter --|> BaseReadAdapter : implements
 ```
