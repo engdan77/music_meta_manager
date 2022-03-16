@@ -2,8 +2,18 @@
 
 Description goes here...
 
+## Current built-in adapters
 
-## Sample for creating a custom Song class
+### Read
+- TunesReadAdapter
+- MacOSMusicReadAdapter
+
+### Write
+- JsonWriteAdapter
+
+## Quick into how to extend additional adapters
+
+### Sample for creating a custom Song class
 
 This is to be used together with your ReadAdapter or WriteAdapter by inherit BaseSong and implements the abstract methods.
 
@@ -28,7 +38,7 @@ class CsvSong(BaseSong):
 
 ```
 
-## Sample for creating a new ReadAdapter
+### Sample for creating a new ReadAdapter
 
 This is just to illustrate a sample using the above CsvSong.
 The docstring and annotation being used to generate help for CLI parameters.
@@ -54,7 +64,7 @@ class CsvReadAdapter(BaseReadAdapter):
                 yield(CsvSong(**next_song))
 ```
 
-## Sample for creating a new WriteAdapter
+### Sample for creating a new WriteAdapter
 
 ```python
 class CsvWriteAdapter(BaseWriteAdapter):
@@ -81,7 +91,29 @@ class CsvWriteAdapter(BaseWriteAdapter):
         self.write(f"{'\t'.join(song_data)}\n")
 ```
 
-## Sofware design
+### Test the command line
+
+```shell
+$ musicmanager --help
+
+usage: musicmanager [-h] ... [--CsvReadAdapter | --csv CSV] [--CsvWriteAdapter | --csv CSV]
+
+Program for migration music meta data between different services
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --CsvReadAdapter    Read from iTunes
+  --csv CSV         [CsvReadAdapter] path to csv file
+  --CsvWriteAdapter    Write to CSV
+  --csv CSV           [CsvWriteAdapter] path to csv file
+```
+
+
+## Design documentation
+
+### Software design
+
+This describes on a high level the concepts and how they relate allowing easier adding your own custom adapters with no need to change the code. And how this allows command-line parameters to automatically add its configuration.
 
 ```mermaid
 flowchart BT
@@ -113,7 +145,7 @@ style limit fill:pink
 style cli fill:yellow
 ```
 
-## Class diagram
+### Class diagram
 
 ```mermaid
 %%{init: {'theme': 'neutral' } }%%
