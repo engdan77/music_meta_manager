@@ -8,19 +8,19 @@ It started with a need for a framework allowing me transferring meta-data from A
 
 The field names might differ between those applications and different packages exists to support <u>reading and writing interchangeably</u> between those so to allow this and at the same time making this <u>extensible</u> I found a good oportunity to write this as a <u>package</u> to fill this gap.
 
-A good oportunity to think more carefully around the software design to follow principles such as [SOLID](https://en.wikipedia.org/wiki/SOLID) to make the code easier to read and maintain.
+A good oportunity to challenge myself thinking more of the software design to follow principles such as [SOLID](https://en.wikipedia.org/wiki/SOLID) to make the code easier to read and maintain.
 
 
 
 ## Software design
 
-Following a form of [bridge-pattern](https://en.wikipedia.org/wiki/Bridge_pattern) that allows us abstracting the application *(adapter)* class the field-definition *(song)* allows to easily add support for additional application. Built into this package also support to be used as a <u>command-line tool</u>.
+Following a form of [bridge-pattern](https://en.wikipedia.org/wiki/Bridge_pattern) that allows us abstracting the application *(adapter)* class the field-definition *(song)*  to easier add support for additional application and song structures. Built into this package also support to be used as a <u>command-line tool</u> for easily transferring songs across applications or files.
 
-Thanks to using *abstract base classes*, *type annotations* and *docstrings* allow <u>automatic generation of the parameters</u>.
+Thanks to using *abstract base classes*, *type annotations* and *docstrings* allow <u>automatic generation of the parameters</u> thanks to some of the clever mechanics within Python.
 
 Also adding some basic [operator overloading](https://en.wikipedia.org/wiki/Operator_overloading) for comparison and filtering purposes of songs.
 
-This below is how I would visualise the design and further down you have a more complete class-diagaram.
+This below is how I would visualise the software design and further down in this documentation you will also find a more complete class-diagaram.
 
 ```mermaid
 flowchart BT
@@ -86,7 +86,7 @@ This is to be used together with your ReadAdapter or WriteAdapter by inherit Bas
 ```python
 class CsvSong(BaseSong):
     @staticmethod
-    def _normalize_field(foreign_field_name: Annotated[str, "Field name to be converted"]) -> Annotated[str, "Dataclass field name"]:
+    def normalize_field(foreign_field_name: Annotated[str, "Field name to be converted"]) -> Annotated[str, "Dataclass field name"]:
         """
         Required concrete method responsible for resolving field/attributes and inherits from BaseSong as dataclass.
         The below sample assures that field named "Path" will be read as "Location" when read.
@@ -95,7 +95,7 @@ class CsvSong(BaseSong):
         return t.get(foreign_field_name, foreign_field_name)
 
     @staticmethod
-    def _normalize_datetime(foreign_datetime: Annotated[str, "Datetime text to be converted"]) -> datetime.datetime:
+    def normalize_datetime(foreign_datetime: Annotated[str, "Datetime text to be converted"]) -> datetime.datetime:
         """
         Required concrete method responsible parsing the date_added into a valid datetime object.
         The below sample will use datetime.strptime to parse according to "format".
@@ -177,7 +177,7 @@ The below below is to show how the parameters and help section would automatical
 To simplify not showing all the built in adapters.
 
 ```shell
-$ musicmanager --help
+$ mmm --help
 
 usage: mmm [-h] [--MacOSMusicReadAdapter] [--CsvReadAdapter | --csv CSV] [--CsvWriteAdapter | --csv CSV]
 
@@ -196,7 +196,7 @@ optional arguments:
 
 ## Sample use cases
 
-Reading from iTunes and write to JSON
+### Reading from iTunes and and write to JSON file
 
 ```python
 with TunesReadAdapter(limit=3) as r, JsonWriteAdapter('my_music.json') as w:
@@ -205,7 +205,7 @@ with TunesReadAdapter(limit=3) as r, JsonWriteAdapter('my_music.json') as w:
     w.write(song)
 ```
 
-Resulting in
+#### Resulting in
 
 ```
 Writing: 10,000 Maniacs - Because The Night                        1998   ⭐️⭐️⭐️⭐️
@@ -213,7 +213,29 @@ Writing: Phil Fuldner - S-Express                                  1999   ⭐️
 Writing: Hampenberg - Last Night                                   1999   ⭐️⭐️
 ```
 
+### Usage of comparison operators on songs
 
+```python
+>>> print(song)
+10,000 Maniacs - Because The Night                        1998   ⭐️⭐️⭐️⭐️
+
+>>> song >= '⭐⭐'
+True
+
+>>> song < 1996
+False
+
+>>> other_song = song
+>>> song @ other_song  # a special operator for comparing that name and album match
+True
+```
+
+### Easily filtering with help of comparison
+
+```python
+>>> [song.name for song in TunesReadAdapter() if song >= '⭐⭐⭐' and song < 2022]
+['Because The Night']
+```
 
 
 
