@@ -297,6 +297,7 @@ class BaseWriteAdapter(ABC):
     def write(self, song: BaseSong):
         """Method responsible for writing a song to service"""
 
+
 class JsonWriteAdapter(BaseWriteAdapter):
     """Write to JSON"""
 
@@ -367,8 +368,7 @@ if __name__ == "__main__":
     w = JsonWriteAdapter()
     with TunesReadAdapter(limit=5) as r, JsonWriteAdapter() as w:
         for song in r:
-            print(song)
-            x = song in r
+            print(f"Writing: {song}")
             w.write(song)
 
     # m = MacOSMusicReader()
