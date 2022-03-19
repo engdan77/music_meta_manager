@@ -65,20 +65,46 @@ class BaseSong(ABC):
     played_count: int = 0
     rating: int = 0
     year: int = datetime.date.today().year
-    _date_added: "_normalize_datetime" = datetime.date.today()
+    _date_added: "normalize_datetime" = datetime.date.today()
 
     def __str__(self):
-        return f"{self.artist} - {self.name:<40} {self.year:<6} {'⭐️' * int(float(self.rating) / 100 * 5) if self.rating else ''}"
+        return f"{self.artist} - {self.name:<40} {self.year:<6} {self.rating_in_stars if self.rating else ''}"
 
-    def __matmul__(self, item):
+    def __matmul__(self, other):
         """Override special operator song1 @ song2 for comparing name and album"""
-        return (self.name, self.artist) == (item.name, item.artist)
+        return (self.name, self.artist) == (other.name, other.artist)
+
+    def __eq__(self, condition):
+        """Allow comparison of year, name or stars"""
+        if count_stars(condition) and count_stars(self.rating_in_stars) == count_stars(condition):
+            return True
+        if isinstance(condition, int) and self.year == condition:
+            return True
+        if isinstance(condition, str) and self.name == condition:
+            return True
+        return False
+
+    def __ge__(self, condition):
+        """Allow greater or equal than year or stars"""
+        if isinstance(condition, int):
+            return self.year >= condition
+        if count_stars(condition) and count_stars(self.rating_in_stars) >= count_stars(condition):
+            return True
+        return False
+
+    def __lt__(self, condition):
+        """Allow less than year or stars"""
+        if isinstance(condition, int):
+            return self.year < condition
+        if count_stars(condition) and count_stars(self.rating_in_stars) < count_stars(condition):
+            return True
+        return False
 
     def __init__(
         self, **kwargs: Dict[Annotated[str, "Song field"], Annotated[Any, "Value"]]
     ):
         for k, v in kwargs.items():
-            if not (normalized_field := self._normalize_field(k)):
+            if not (normalized_field := self.normalize_field(k)):
                 normalized_field = k
             if normalized_field not in (
                 _.name if not _.name.startswith("_") else _.name[1:]
@@ -96,6 +122,10 @@ class BaseSong(ABC):
             return value
 
     @property
+    def rating_in_stars(self):
+        return '⭐️' * int(float(self.rating) / 100 * 5)
+
+    @property
     def date_added(self):
         return self._date_added
 
@@ -107,7 +137,7 @@ class BaseSong(ABC):
 
     @staticmethod
     @abstractmethod
-    def _normalize_field(
+    def normalize_field(
         foreign_field_name: Annotated[str, "Field name to be converted"]
     ) -> Annotated[str, "Dataclass field name"]:
         """
@@ -117,7 +147,7 @@ class BaseSong(ABC):
 
     @staticmethod
     @abstractmethod
-    def _normalize_datetime(
+    def normalize_datetime(
         foreign_datetime: Annotated[str, "Datetime text to be converted"]
     ) -> datetime.datetime:
         """
@@ -128,7 +158,7 @@ class BaseSong(ABC):
 
 class TunesSong(BaseSong):
     @staticmethod
-    def _normalize_field(
+    def normalize_field(
         foreign_field_name: Annotated[str, "Field name to be converted"]
     ) -> Annotated[str, "Dataclass field name"]:
         fk = foreign_field_name.lower().replace(" ", "_")
@@ -136,7 +166,7 @@ class TunesSong(BaseSong):
         return t.get(fk, fk)
 
     @staticmethod
-    def _normalize_datetime(
+    def normalize_datetime(
         foreign_datetime: Annotated[str, "Datetime text to be converted"]
     ) -> datetime.datetime:
         return datetime.datetime.strptime(foreign_datetime, "%Y-%m-%dT%H:%M:%SZ")
@@ -144,13 +174,13 @@ class TunesSong(BaseSong):
 
 class MacOSMusicSong(BaseSong):
     @staticmethod
-    def _normalize_field(
+    def normalize_field(
         foreign_field_name: Annotated[str, "Field name to be converted"]
     ) -> Annotated[str, "Dataclass field name"]:
         pass
 
     @staticmethod
-    def _normalize_datetime(
+    def normalize_datetime(
         foreign_datetime: Annotated[str, "Datetime text to be converted"]
     ) -> datetime.datetime:
         pass
@@ -313,6 +343,10 @@ class JsonWriteAdapter(BaseWriteAdapter):
         self.db.insert(vars(song))
 
 
+def count_stars(input_string: str, match_bytes: bytes = b'\xe2\xad\x90'):
+    """Function for counting count of bytes sequence within input_bytes, used for counting stars"""
+    return input_string.encode().count(match_bytes)
+
 def get_class_arguments(sub_class) -> Dict:
     args_with_annotation = {}
     c = sub_class.__init__.__code__
@@ -369,6 +403,7 @@ if __name__ == "__main__":
     with TunesReadAdapter(limit=5) as r, JsonWriteAdapter() as w:
         for song in r:
             print(f"Writing: {song}")
+            song == '⭐⭐⭐⭐'
             w.write(song)
 
     # m = MacOSMusicReader()
