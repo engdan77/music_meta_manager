@@ -49,11 +49,11 @@ class BaseSong(ABC):
     """Abstract dataclass for normalizing song objects.
     Inherit and implement to be used by concrete class inherited by BaseReadAdapter
 
-    _normalize_field(foreign_field_name: str) -> one_of_below_dataclass_field: str
+    normalize_field(foreign_field_name: str) -> one_of_below_dataclass_field: str
     Required if field names differs from dataclass
     fields: name, location, artist, genre, played_count, rating, year, _date_Added
 
-    __normalize_datetime(foreign_datetime_format: str) -> datetime
+    normalize_datetime(foreign_datetime_format: str) -> datetime
     Required for casting datetime
     """
 
