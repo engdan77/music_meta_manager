@@ -4,7 +4,7 @@
 
 ## Background
 
-It started with a need for a framework allowing me transferring meta-data from Apple's iTunes *(such a ⭐️ rating)* that I had backup of into the more recent  MacOS Music application. I would also like to be able to export this meta-data into a more future-proof format as JSON in case of use with a different application.
+It started with a need for a framework allowing me transferring meta-data from Apple's iTunes *(such a ⭐️ rating)* that I had backup of into the more recent  MacOS Music application. I would also like to be able to export this meta-data into a more future-proof format as JSON in case of use with a different application. Another sample use-case to use this for filtering out songs to your need, read the songs filepath and copy to a device such as an MP3-player.
 
 The field names might differ between those applications and different packages exists to support <u>reading and writing interchangeably</u> between those so to allow this and at the same time making this <u>extensible</u> I found a good oportunity to write this as a <u>package</u> to fill this gap.
 
