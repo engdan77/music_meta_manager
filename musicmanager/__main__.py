@@ -228,7 +228,7 @@ class TunesReadAdapter(BaseReadAdapter):
         self,
         xml: Annotated[
             str, "xml file from iTunes"
-        ] = "/Users/edo/Music/iTunes Library.xml",
+        ] = "/Users/edo/Music/backup/iTunes Library.xml",
         limit: Annotated[
             int, "limit to number of songs",
         ] = 0
@@ -331,7 +331,7 @@ class BaseWriteAdapter(ABC):
 class JsonWriteAdapter(BaseWriteAdapter):
     """Write to JSON"""
 
-    def __init__(self, json: Annotated[str, "json file"] = "music.json") -> None:
+    def __init__(self, json: Annotated[str, "json file"] = "/tmp/music.json") -> None:
         serialization = SerializationMiddleware(JSONStorage)
         serialization.register_serializer(DateTimeSerializer(), 'date')
         self.db = TinyDB(json, storage=serialization)
@@ -343,9 +343,17 @@ class JsonWriteAdapter(BaseWriteAdapter):
         self.db.insert(vars(song))
 
 
+class MacOSMusicWriteAdapter(BaseWriteAdapter):
+
+    def write(self, song: BaseSong):
+        # TODO: Add logic here
+        pass
+
+
 def count_stars(input_string: str, match_bytes: bytes = b'\xe2\xad\x90'):
     """Function for counting count of bytes sequence within input_bytes, used for counting stars"""
     return input_string.encode().count(match_bytes)
+
 
 def get_class_arguments(sub_class) -> Dict:
     args_with_annotation = {}
