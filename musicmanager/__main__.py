@@ -8,7 +8,7 @@ import pickle
 from abc import ABC, abstractmethod, ABCMeta
 import xml.etree.ElementTree as ET
 from collections import namedtuple, defaultdict
-from dataclasses import dataclass, fields, field
+from dataclasses import dataclass, fields, field, asdict
 import datetime
 from tinydb import TinyDB, Query, JSONStorage
 from tinydb_serialization import SerializationMiddleware
@@ -288,8 +288,8 @@ class MacOSMusicReadAdapter(BaseReadAdapter):
     def get_current_attribute(self, attribute):
         return self.c.current_track[attribute]
 
-    def set_current_rating(self, rating: int):
-        self.c.current_track.__setattr__("rating", rating)
+    def set_song_field(self, field: str, value: Any):
+        self.c.current_track.__setattr__(field, value)
 
     def next_song(self):
         self.c.next()
@@ -305,6 +305,15 @@ class MacOSMusicReadAdapter(BaseReadAdapter):
 
     def get_current_index(self):
         return self.c.current_track["index"]
+
+    @staticmethod
+    def _match_song(song: BaseSong, field_values: Annotated[dict, 'field and values']):
+        return all([getattr(song, k, None) == v for k, v in field_values.items()])
+
+    def get_song_index_by_fields(self, field_values: Annotated[dict, 'field and values']):
+        for song_index, s in enumerate(self.yield_song()):
+            if self._match_song(s, field_values):
+                return song_index
 
 
 class BaseWriteAdapter(ABC):
@@ -343,10 +352,19 @@ class JsonWriteAdapter(BaseWriteAdapter):
         self.db.insert(vars(song))
 
 
-class MacOSMusicWriteAdapter(BaseWriteAdapter):
+class MacOSMusicWriteAdapter(BaseWriteAdapter, MacOSMusicReadAdapter):
+    """Write song to MacOS Music application"""
+
+    def __init__(self, match_fields: Annotated[str, "match fields before updates, comma separated"] = "name,artist"):
+        super().__init__()
+        self.match_fields = [_.strip() for _ in match_fields.split(',')]
+        self.c = Client()
 
     def write(self, song: BaseSong):
-        # TODO: Add logic here
+        match_fields = {_: getattr(song, _) for _ in self.match_fields}
+        if song_index := self.get_song_index_by_fields(match_fields):
+            self.jump_song(song_index)
+            self.set_song_field(asdict(song))
         pass
 
 
