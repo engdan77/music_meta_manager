@@ -355,8 +355,11 @@ class JsonWriteAdapter(BaseWriteAdapter):
 class MacOSMusicWriteAdapter(BaseWriteAdapter, MacOSMusicReadAdapter):
     """Write song to MacOS Music application"""
 
-    def __init__(self, match_fields: Annotated[str, "match fields before updates, comma separated"] = "name,artist"):
+    def __init__(self, 
+                 match_fields: Annotated[str, "match fields before updates, comma separated"] = "name,artist",
+                 exclude_fields: Annotated[str, "which fields to exclude, comma separated"] = "location"):
         super().__init__()
+        self.exclude_fields = exclude_fields
         self.match_fields = [_.strip() for _ in match_fields.split(',')]
         self.c = Client()
 
