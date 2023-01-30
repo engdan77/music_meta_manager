@@ -1,5 +1,5 @@
 """Program for migration music meta data between different services"""
-
+import inspect
 from typing import List, Tuple, Any, Annotated, Dict, Callable, Sequence, Iterable, Union
 from pytunes.client import Client
 from loguru import logger
@@ -373,11 +373,18 @@ def count_stars(input_string: str, match_bytes: bytes = b'\xe2\xad\x90'):
     return input_string.encode().count(match_bytes)
 
 
+def get_default_args(func):
+    """returns a dictionary of arg_name:default_values for the input function"""
+    args, varargs, keywords, defaults = inspect.getargspec(func)
+    return dict(zip(args[-len(defaults):], defaults))
+
+
 def get_class_arguments(sub_class) -> Dict:
     args_with_annotation = {}
     c = sub_class.__init__.__code__
     args = [_ for _ in c.co_varnames[:c.co_argcount] if _ != "self"]  # only get method parameters
     for arg in args:
+        default_arg = inspect.signature(sub_class.__init__).parameters[arg].default
         if annotation := (sub_class.__init__.__annotations__.get(arg, {}) or ''):
             if hasattr(annotation, '__metadata__'):
                 annotation = next(iter(annotation.__metadata__))
@@ -390,7 +397,7 @@ def get_class_arguments(sub_class) -> Dict:
             raise AdapterParameterError(
                 f'{sub_class.__name__} lack type annotation for parameter "{arg}"'
             ) from None
-        args_with_annotation[arg] = (type_, annotation)
+        args_with_annotation[arg] = (type_, annotation, default_arg)
     return args_with_annotation
 
 
@@ -414,8 +421,8 @@ def adapters_to_argparser(adapters: dict[AdapterType, list[Adapter]]) -> Argumen
         for adapter in adapters:
             group = parser.add_mutually_exclusive_group()
             group.add_argument(f'--{adapter.name}', action='store_true', help=adapter.doc)
-            for parameter_name, (parameter_type, parameter_help) in adapter.args.items():
-                group.add_argument(f'--{parameter_name}', type=parameter_type, help=f'[{adapter.name}] {parameter_help}' if isinstance(parameter_help, str) else '')
+            for parameter_name, (parameter_type, parameter_help, default_arg) in adapter.args.items():
+                group.add_argument(f'--{parameter_name}', type=parameter_type, help=f'[{adapter.name}] {parameter_help} (default: {default_arg})' if isinstance(parameter_help, str) else '')
     return parser
 
 
