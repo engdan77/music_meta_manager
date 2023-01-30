@@ -373,12 +373,6 @@ def count_stars(input_string: str, match_bytes: bytes = b'\xe2\xad\x90'):
     return input_string.encode().count(match_bytes)
 
 
-def get_default_args(func):
-    """returns a dictionary of arg_name:default_values for the input function"""
-    args, varargs, keywords, defaults = inspect.getargspec(func)
-    return dict(zip(args[-len(defaults):], defaults))
-
-
 def get_class_arguments(sub_class) -> Dict:
     args_with_annotation = {}
     c = sub_class.__init__.__code__
