@@ -316,6 +316,19 @@ class MacOSMusicReadAdapter(BaseReadAdapter):
                 return song_index
 
 
+class JsonReadAdapter(BaseReadAdapter):
+    """Read from JSON"""
+
+    def __init__(self, json_read: Annotated[str, "json file"] = "/tmp/music.json") -> None:
+        serialization = SerializationMiddleware(JSONStorage)
+        serialization.register_serializer(DateTimeSerializer(), 'date')
+        self.db = TinyDB(json, storage=serialization)
+
+    def yield_song(self) -> Iterable[BaseSong]:
+        # TODO: fix
+        pass
+
+
 class BaseWriteAdapter(ABC):
     """Abstract base class for adapter writing songs to service
     Subclass and implement
@@ -340,7 +353,7 @@ class BaseWriteAdapter(ABC):
 class JsonWriteAdapter(BaseWriteAdapter):
     """Write to JSON"""
 
-    def __init__(self, json: Annotated[str, "json file"] = "/tmp/music.json") -> None:
+    def __init__(self, json_write: Annotated[str, "json file"] = "/tmp/music.json") -> None:
         serialization = SerializationMiddleware(JSONStorage)
         serialization.register_serializer(DateTimeSerializer(), 'date')
         self.db = TinyDB(json, storage=serialization)
@@ -416,7 +429,8 @@ def adapters_to_argparser(adapters: dict[AdapterType, list[Adapter]]) -> Argumen
     parser = ArgumentParser(__package__, description=__doc__)
     for adapter_type, adapters in adapters.items():
         for adapter in adapters:
-            group = parser.add_mutually_exclusive_group()
+            # group = parser.add_mutually_exclusive_group()
+            group = parser.add_argument_group(adapter.name)
             group.add_argument(f'--{adapter.name}', action='store_true', help=adapter.doc)
             for parameter_name, (parameter_type, parameter_help, default_arg) in adapter.args.items():
                 group.add_argument(f'--{parameter_name}', type=parameter_type, help=f'[{adapter.name}] {parameter_help} (default: {default_arg})' if isinstance(parameter_help, str) else '')
@@ -426,7 +440,7 @@ def adapters_to_argparser(adapters: dict[AdapterType, list[Adapter]]) -> Argumen
 if __name__ == "__main__":
     adapters = get_adaptors()
     parser = adapters_to_argparser(adapters)
-    parser.parse_args()
+    args = parser.parse_args()
     # exit()
     r = TunesReadAdapter()
     w = JsonWriteAdapter()
