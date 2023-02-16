@@ -14,7 +14,7 @@ from tinydb import TinyDB, Query, JSONStorage
 from tinydb_serialization import SerializationMiddleware
 from tinydb_serialization.serializers import DateTimeSerializer
 from typing import Optional
-from argparse import ArgumentParser
+from argparse import ArgumentParser, Namespace
 from enum import Enum, auto
 
 
@@ -437,10 +437,49 @@ def adapters_to_argparser(adapters: dict[AdapterType, list[Adapter]]) -> Argumen
     return parser
 
 
+def get_all_adapter_names(adapters) -> dict[AdapterType, list[str]]:
+    """Return dict with name of adapters of each type"""
+    r = defaultdict(list)
+    for t in AdapterType:
+        for a in adapters[t]:
+            r[t].append(a.name)
+    return r
+
+def get_adapter_by_name(adapters: list, adapter_name: str):
+    ...
+
+
+def get_adapters_in_args(adapters, args: Namespace):
+    all_adapter_names = get_all_adapter_names(adapters)
+    result = {}
+    for t in AdapterType:
+        for arg, value in args._get_kwargs():
+            if arg in all_adapter_names[t]:
+                for _ in adapters[t]:
+                    if _['name'] == arg:
+                        result[t] = _['sub_class']  # get reader and writer
+                        continue
+    return result
+
+
+
+def get_read_write_adapters(args: Namespace, adapters: dict):
+    x = get_adapters_in_args(adapters, args)
+    reader = adapters.get(AdapterType.READER, [None]).pop()
+    writer = adapters.get(AdapterType.WRITER, [None]).pop()
+    logger.info(f'Reader: {reader.name}')
+    logger.info(f'Writer: {writer.name}')
+    if not reader and writer:
+        raise SystemExit('You need to specify one reader and one writer')
+    ...
+
+
+
 if __name__ == "__main__":
     adapters = get_adaptors()
     parser = adapters_to_argparser(adapters)
     args = parser.parse_args()
+    reader, writer = get_read_write_adapters(args, adapters)
     # exit()
     r = TunesReadAdapter()
     w = JsonWriteAdapter()
