@@ -1,6 +1,7 @@
 """Program for migration music meta data between different services"""
+import functools
 import inspect
-from typing import List, Tuple, Any, Annotated, Dict, Callable, Sequence, Iterable, Union
+from typing import List, Tuple, Any, Annotated, Dict, Callable, Sequence, Iterable, Union, Literal
 from pytunes.client import Client
 from loguru import logger
 import IReadiTunes as irit
@@ -445,50 +446,66 @@ def get_all_adapter_names(adapters) -> dict[AdapterType, list[str]]:
             r[t].append(a.name)
     return r
 
+
 def get_adapter_by_name(adapters: list, adapter_name: str):
     ...
 
 
-def get_adapters_in_args(adapters, args: Namespace):
+def get_matching_kwargs(cls: Callable, incoming_args: Namespace) -> dict:
+    """Match incoming_args with signature of Callable and return dict of kwargs"""
+    result = {}
+    args = inspect.signature(cls).parameters.items()
+    for arg_name, extra in args:
+        if arg_name in incoming_args:
+            result[arg_name] = getattr(incoming_args, arg_name)
+        else:
+            result[arg_name] = extra.default
+    return result
+
+
+def get_adapters_in_args(adapters, args: Namespace) -> dict[AdapterType, Union[BaseReadAdapter, BaseWriteAdapter]]:
+    """Take arguments and extract Reader and Writer classes to be used in main"""
     all_adapter_names = get_all_adapter_names(adapters)
     result = {}
     for t in AdapterType:
-        for arg, value in args._get_kwargs():
-            if arg in all_adapter_names[t]:
-                for _ in adapters[t]:
-                    if _['name'] == arg:
-                        result[t] = _['sub_class']  # get reader and writer
-                        continue
+        for adapter_name_from_arg, enabled in args._get_kwargs():
+            if not enabled:
+                continue
+            for _ in adapters[t]:
+                if getattr(_, 'name') == adapter_name_from_arg:
+                    cls = getattr(_, 'sub_class')  # get reader and writer
+                    output_args = get_matching_kwargs(cls, args)
+                    result[t] = functools.partial(cls, **output_args)
+                    continue
     return result
 
 
 
-def get_read_write_adapters(args: Namespace, adapters: dict):
-    x = get_adapters_in_args(adapters, args)
-    reader = adapters.get(AdapterType.READER, [None]).pop()
-    writer = adapters.get(AdapterType.WRITER, [None]).pop()
-    logger.info(f'Reader: {reader.name}')
-    logger.info(f'Writer: {writer.name}')
+def get_read_write_adapters(args: Namespace, adapters: dict) -> tuple[BaseReadAdapter, BaseWriteAdapter]:
+    adapters_by_args = get_adapters_in_args(adapters, args)
+    reader = adapters_by_args.get(AdapterType.READER, None)
+    writer = adapters_by_args.get(AdapterType.WRITER, None)
+    logger.info(f'Reader: {reader.__name__}')
+    logger.info(f'Writer: {writer.__name__}')
     if not reader and writer:
         raise SystemExit('You need to specify one reader and one writer')
-    ...
+    return reader, writer
 
 
-
-if __name__ == "__main__":
+def main():
     adapters = get_adaptors()
     parser = adapters_to_argparser(adapters)
     args = parser.parse_args()
     reader, writer = get_read_write_adapters(args, adapters)
-    # exit()
-    r = TunesReadAdapter()
-    w = JsonWriteAdapter()
-    with TunesReadAdapter(limit=5) as r, JsonWriteAdapter() as w:
+    with reader(limit=5) as r, writer() as w:
         for song in r:
             print(f"Writing: {song}")
-            song == '⭐⭐⭐⭐'
             w.write(song)
 
     # m = MacOSMusicReader()
     # for song in m:
     #     print(song)
+
+if __name__ == "__main__":
+    main()
+
