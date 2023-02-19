@@ -2,6 +2,8 @@
 import functools
 import inspect
 from typing import List, Tuple, Any, Annotated, Dict, Callable, Sequence, Iterable, Union, Literal
+
+import appscript.reference
 from pytunes.client import Client
 from loguru import logger
 import IReadiTunes as irit
@@ -112,7 +114,10 @@ class BaseSong(ABC):
                 for _ in fields(self)
             ):
                 continue
-            setattr(self, normalized_field, self._cast(normalized_field, v))
+            casted_value = self._cast(normalized_field, v)
+            if casted_value is None:
+                casted_value = v  # Why? to avoid issue where datetime comes as should not be casted
+            setattr(self, normalized_field, casted_value)
 
     def _cast(self, field_, value):
         if func := next((_.type for _ in fields(self) if _.name in [field_, f'_{field_}']), None):  # check also private field
@@ -132,8 +137,11 @@ class BaseSong(ABC):
 
     @date_added.setter
     def date_added(self, value):
+        org_value = value
+        if isinstance(value, datetime.date):
+            value = datetime.datetime.fromordinal(value.toordinal())
         if not isinstance(value, datetime.datetime):
-            raise TypeError("The value has to be of type datetime")
+            raise TypeError(f"The value has to be of type datetime currently type {type(value)} = {value}")
         self._date_added = value
 
     @staticmethod
@@ -187,6 +195,19 @@ class MacOSMusicSong(BaseSong):
         pass
 
 
+class JsonSong(BaseSong):
+
+    @staticmethod
+    def normalize_field(foreign_field_name: Annotated[str, "Field name to be converted"]) -> Annotated[
+        str, "Dataclass field name"]:
+        pass
+
+    @staticmethod
+    def normalize_datetime(foreign_datetime: Annotated[str, "Datetime text to be converted"]) -> datetime.datetime:
+        return datetime.datetime.fromordinal(foreign_datetime.toordinal())
+        pass
+
+
 class BaseReadAdapter(ABC):
     """Abstract base class for adapter reading songs from service
     Subclass and implement
@@ -207,8 +228,12 @@ class BaseReadAdapter(ABC):
         """Override any requirements for closing service"""
 
     def __iter__(self):
-        for song in self.yield_song():
-            yield song
+        try:
+            for song in self.yield_song():
+                yield song
+        except TypeError as e:
+            logger.error(f'Error reading using {self.__class__.__name__} with {e!r}')
+            raise e from None
 
     def __contains__(self, target_song: BaseSong) -> bool:
         for source_song in iter(self):
@@ -270,14 +295,24 @@ class MacOSMusicReadAdapter(BaseReadAdapter):
 
     def __init__(self):
         self.c = Client()
+        try:
+            _ = self.c.status
+        except appscript.reference.CommandError as e:
+            logger.error(f'Error connecting to client with {e.args}')
+            raise e from None
+        else:
+            logger.debug(f'Connected to client with status {_}')
 
     def yield_song(self) -> Iterable[BaseSong]:
         self.jump_song(-1)
+        self.c.volume = 0
+        self.c.play()
         last_song_index = self.get_current_index()
-        for i in range(1, last_song_index):
-            self.next_song()
-            self.c.volume = 0
-            self.c.current_track.refresh()
+        self.jump_song(1)
+        for i in range(1, last_song_index + 1):
+            # self.c.current_track.refresh()
+            self.jump_song(i)
+            self.c.play()
             kv = {}
             for k in self.c.current_track.keys():
                 try:
@@ -285,6 +320,8 @@ class MacOSMusicReadAdapter(BaseReadAdapter):
                 except (TypeError, KeyError):
                     continue
             yield MacOSMusicSong(**kv)
+
+
 
     def get_current_attribute(self, attribute):
         return self.c.current_track[attribute]
@@ -312,8 +349,11 @@ class MacOSMusicReadAdapter(BaseReadAdapter):
         return all([getattr(song, k, None) == v for k, v in field_values.items()])
 
     def get_song_index_by_fields(self, field_values: Annotated[dict, 'field and values']):
-        for song_index, s in enumerate(self.yield_song()):
+        all_songs = [_ for _ in self.yield_song()]
+        for song_index, s in enumerate(all_songs, start=1):
+            logger.debug(f'searching song, current index {song_index}')
             if self._match_song(s, field_values):
+                logger.debug(f'Found {s} on index {song_index}')
                 return song_index
 
 
@@ -323,11 +363,13 @@ class JsonReadAdapter(BaseReadAdapter):
     def __init__(self, json_read: Annotated[str, "json file"] = "/tmp/music.json") -> None:
         serialization = SerializationMiddleware(JSONStorage)
         serialization.register_serializer(DateTimeSerializer(), 'date')
-        self.db = TinyDB(json, storage=serialization)
+        self.db = TinyDB(json_read, storage=serialization)
 
     def yield_song(self) -> Iterable[BaseSong]:
+        for s in self.db.all():
+            yield JsonSong(**s)
         # TODO: fix
-        pass
+        ...
 
 
 class BaseWriteAdapter(ABC):
@@ -357,7 +399,7 @@ class JsonWriteAdapter(BaseWriteAdapter):
     def __init__(self, json_write: Annotated[str, "json file"] = "/tmp/music.json") -> None:
         serialization = SerializationMiddleware(JSONStorage)
         serialization.register_serializer(DateTimeSerializer(), 'date')
-        self.db = TinyDB(json, storage=serialization)
+        self.db = TinyDB(json_write, storage=serialization, indent=2)
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.db.close()
@@ -371,7 +413,7 @@ class MacOSMusicWriteAdapter(BaseWriteAdapter, MacOSMusicReadAdapter):
 
     def __init__(self, 
                  match_fields: Annotated[str, "match fields before updates, comma separated"] = "name,artist",
-                 exclude_fields: Annotated[str, "which fields to exclude, comma separated"] = "location"):
+                 exclude_fields: Annotated[str, "which fields to exclude, comma separated"] = "none"):
         super().__init__()
         self.exclude_fields = exclude_fields
         self.match_fields = [_.strip() for _ in match_fields.split(',')]
@@ -379,10 +421,12 @@ class MacOSMusicWriteAdapter(BaseWriteAdapter, MacOSMusicReadAdapter):
 
     def write(self, song: BaseSong):
         match_fields = {_: getattr(song, _) for _ in self.match_fields}
-        if song_index := self.get_song_index_by_fields(match_fields):
+        song_index = self.get_song_index_by_fields(match_fields)
+        if song_index is not None:
             self.jump_song(song_index)
-            self.set_song_field(asdict(song))
-        pass
+            for field_, value in asdict(song).items():
+                if field_ not in self.exclude_fields.split(','):
+                    self.set_song_field(field_, value)
 
 
 def count_stars(input_string: str, match_bytes: bytes = b'\xe2\xad\x90'):
@@ -456,7 +500,7 @@ def get_matching_kwargs(cls: Callable, incoming_args: Namespace) -> dict:
     result = {}
     args = inspect.signature(cls).parameters.items()
     for arg_name, extra in args:
-        if arg_name in incoming_args:
+        if arg_name in incoming_args and getattr(incoming_args, arg_name) is not None:
             result[arg_name] = getattr(incoming_args, arg_name)
         else:
             result[arg_name] = extra.default
@@ -485,9 +529,9 @@ def get_read_write_adapters(args: Namespace, adapters: dict) -> tuple[BaseReadAd
     adapters_by_args = get_adapters_in_args(adapters, args)
     reader = adapters_by_args.get(AdapterType.READER, None)
     writer = adapters_by_args.get(AdapterType.WRITER, None)
-    logger.info(f'Reader: {reader.__name__}')
-    logger.info(f'Writer: {writer.__name__}')
-    if not reader and writer:
+    logger.info(f'Reader: {reader}')
+    logger.info(f'Writer: {writer}')
+    if not reader or not writer:
         raise SystemExit('You need to specify one reader and one writer')
     return reader, writer
 
@@ -497,9 +541,9 @@ def main():
     parser = adapters_to_argparser(adapters)
     args = parser.parse_args()
     reader, writer = get_read_write_adapters(args, adapters)
-    with reader(limit=5) as r, writer() as w:
+    with reader() as r, writer() as w:
         for song in r:
-            print(f"Writing: {song}")
+            logger.info(f"Writing: {song}")
             w.write(song)
 
     # m = MacOSMusicReader()
