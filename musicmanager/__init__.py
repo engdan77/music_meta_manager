@@ -1,1 +1,2 @@
-from .__main__ import BaseSong, BaseWriteAdapter, BaseReadAdapter
+from .adapter import BaseReadAdapter, BaseWriteAdapter
+from .song import BaseSong
