@@ -102,8 +102,8 @@ def get_read_write_adapters(args: Namespace, adapters: dict) -> tuple[partial | 
     adapters_by_args = get_adapters_in_args(adapters, args)
     reader = adapters_by_args.get(AdapterType.READER, None)
     writer = adapters_by_args.get(AdapterType.WRITER, None)
-    logger.info(f'Reader: {reader}')
-    logger.info(f'Writer: {writer}')
+    logger.debug(f'Reader: {reader}')
+    logger.debug(f'Writer: {writer}')
     if not reader or not writer:
         raise SystemExit('You need to specify one reader and one writer')
     return reader, writer
@@ -114,7 +114,9 @@ def cli_migrate():
     parser = adapters_to_argparser(adapters)
     args = parser.parse_args()
     reader, writer = get_read_write_adapters(args, adapters)
+    logger.info(f'Migrating songs from {reader.func.__name__} to {writer.func.__name__}')
     with reader() as r, writer() as w:
         for song in r:
             logger.info(f"Updating song {song}")
             w.write(song)
+    logger.info(f'Complete')
