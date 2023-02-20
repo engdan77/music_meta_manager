@@ -3,12 +3,16 @@ import inspect
 from argparse import ArgumentParser, Namespace
 from collections import defaultdict
 from functools import partial
-from typing import Dict, Union, Callable, Tuple
-
+from typing import Dict, Union, Callable, Tuple, Annotated
+from console_explorer import browse_for_folder
+from pathlib import Path
 from loguru import logger
+from . adapter import AdapterParameterError, AdapterType, Adapter, BaseReadAdapter, BaseWriteAdapter
+import music_tag
 
-from musicmanager import BaseReadAdapter, BaseWriteAdapter
-from musicmanager.adapter import AdapterParameterError, AdapterType, Adapter
+from musicmanager import BaseSong
+
+SongLocationList = dict[Annotated[tuple, 'artist, name'], Annotated[str, 'location']]
 
 
 def get_class_arguments(sub_class) -> Dict:
@@ -109,7 +113,28 @@ def get_read_write_adapters(args: Namespace, adapters: dict) -> tuple[partial | 
     return reader, writer
 
 
+def get_folder_song_list(folder: str, ext='mp3') -> SongLocationList:
+    """Return a dict with artist, name and location"""
+    result = {}
+    for f in Path(folder).rglob(f'*.{ext}'):
+        id3 = music_tag.load_file(f.as_posix())
+        k = (id3['artist'].value, id3['tracktitle'].value)
+        result[k] = f.as_posix()
+    return result
+
+
+def update_song_list(song_list: list[BaseSong], folder_song_list: SongLocationList) -> list[BaseSong]:
+    for s in song_list:
+        new_location = folder_song_list.get((s.artist, s.name), None)
+        if not new_location:
+            continue
+        logger.info(f'Updating {s} {s.location} -> {new_location}')
+        s.location = new_location
+    return song_list
+
+
 def cli_migrate():
+    """Read from reader and output to writer"""
     adapters = get_adaptors()
     parser = adapters_to_argparser(adapters)
     args = parser.parse_args()
@@ -120,3 +145,23 @@ def cli_migrate():
             logger.info(f"Updating song {song}")
             w.write(song)
     logger.info(f'Complete')
+
+
+def cli_fix_location():
+    """Iterate through reader, update with location of mp3 matching into writer"""
+    adapters = get_adaptors()
+    parser = adapters_to_argparser(adapters)
+    args = parser.parse_args()
+    logger.info('Which folder do you have your MP3 files?')
+    folder = browse_for_folder()
+    reader, writer = get_read_write_adapters(args, adapters)
+    logger.info(f'Collecting current locations from {reader.func.__name__}')
+    adapter_song_list = list(reader())
+    folder_song_list = get_folder_song_list(folder)
+    adapter_song_list = update_song_list(adapter_song_list, folder_song_list)
+    with writer() as w:
+        for song in adapter_song_list:
+            logger.info(f'Writing {song}')
+            w.write(song)
+    logger.info(f'Complete')
+
