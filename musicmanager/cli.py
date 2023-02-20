@@ -133,8 +133,13 @@ def update_song_list(song_list: list[BaseSong], folder_song_list: SongLocationLi
     return song_list
 
 
+def setup_logger():
+    logger.add('music_manager_{time}.log')
+
+
 def cli_migrate():
     """Read from reader and output to writer"""
+    setup_logger()
     adapters = get_adaptors()
     parser = adapters_to_argparser(adapters)
     args = parser.parse_args()
@@ -149,6 +154,7 @@ def cli_migrate():
 
 def cli_fix_location():
     """Iterate through reader, update with location of mp3 matching into writer"""
+    setup_logger()
     adapters = get_adaptors()
     parser = adapters_to_argparser(adapters)
     args = parser.parse_args()
