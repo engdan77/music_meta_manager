@@ -1,15 +1,23 @@
+import json
+import os
 from abc import ABCMeta, ABC, abstractmethod
 from dataclasses import dataclass, asdict
+from datetime import time
 from enum import Enum, auto
+from pathlib import Path
 from typing import Iterable, Annotated, Any
 from xml.etree import ElementTree as ET
 
+import appdirs
 import appscript.reference
+import pytunes
 from loguru import logger
 from pytunes.client import Client
 from tinydb import JSONStorage, TinyDB
 from tinydb_serialization import SerializationMiddleware
 from tinydb_serialization.serializers import DateTimeSerializer
+from pynput.keyboard import Key, Controller
+from time import sleep
 
 from musicmanager.song import TunesSong, MacOSMusicSong, JsonSong, BaseSong
 
@@ -135,13 +143,12 @@ class MacOSMusicReadAdapter(BaseReadAdapter):
         else:
             logger.debug(f'Connected to client with status {_}')
 
-    def yield_song(self) -> Iterable[BaseSong]:
+    def yield_song(self, start_song=0) -> Iterable[BaseSong]:
         self.jump_song(-1)
         self.c.volume = 0
-        self.c.play()
         last_song_index = self.get_current_index()
         self.jump_song(1)
-        for i in range(1, last_song_index + 1):
+        for i in range(start_song, last_song_index + 1):
             self.jump_song(i)
             self.c.play()
             kv = {}
@@ -175,7 +182,26 @@ class MacOSMusicReadAdapter(BaseReadAdapter):
         return self.c.current_track.path
 
     def jump_song(self, index):
-        self.c.jump(index)
+        try:
+            self.c.jump(index)  # TODO: fix if alert comes up
+            logger.warning(f'Unable to locate song on index {index}, skipping to next')
+        except pytunes.MusicPlayerError as e:
+            self.escape_error_window()
+            self.save_index_reference_to_file(index)
+
+    def escape_error_window(self, delay_secs=2):
+        os.system("osascript -e 'tell application \"System Events\" to key code 53'")  # send escape
+        sleep(delay_secs)
+
+    def save_index_reference_to_file(self, index):
+        package_name = next(iter(self.__module__.split('.')))
+        app_dir = appdirs.user_data_dir(package_name)
+        file = Path(f'{app_dir}/{self.__class__.__name__}_skipped.txt')
+        file.parent.mkdir(parents=True, exist_ok=True)
+        logger.debug(f'Adding {index} to {file.as_posix()}')
+        skipped_files = json.loads(file.read_text()) if file.exists() else []
+        skipped_files.append(index)
+        file.write_text(json.dumps(list(set(skipped_files))))
 
     def get_current_index(self):
         return self.c.current_track["index"]
