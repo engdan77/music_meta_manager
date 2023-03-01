@@ -88,7 +88,9 @@ class BaseReadAdapter(ABC):
 
 
 class TunesReadAdapter(BaseReadAdapter):
-    """Read from iTunes"""
+    """Read from iTunes
+    Reads from XML
+    """
 
     def __init__(
         self,
@@ -131,7 +133,11 @@ class TunesReadAdapter(BaseReadAdapter):
 
 
 class MacOSMusicReadAdapter(BaseReadAdapter):
-    """Read from MacOS Music application"""
+    """Read from macOS Music application
+    This connects to macOS application running
+    """
+
+    all_songs_cache = []
 
     def __init__(self):
         self.c = Client()
@@ -211,7 +217,14 @@ class MacOSMusicReadAdapter(BaseReadAdapter):
         return all([getattr(song, k, None) == v for k, v in field_values.items()])
 
     def get_song_index_by_fields(self, field_values: Annotated[dict, 'field and values']):
-        all_songs = [_ for _ in self.yield_song()]
+        if not self.__class__.all_songs_cache:
+            all_songs = [_ for _ in self.yield_song()]
+            self.__class__.all_songs_cache = all_songs
+            logger.info(f'Storing {len(all_songs)} songs to cache')
+        else:
+            all_songs = self.__class__.all_songs_cache
+            logger.info(f'Reading {len(all_songs)} from cache')
+
         for song_index, s in enumerate(all_songs, start=1):
             logger.debug(f'searching song, current index {song_index}')
             if self._match_song(s, field_values):
@@ -271,7 +284,9 @@ class JsonWriteAdapter(BaseWriteAdapter):
 
 
 class MacOSMusicWriteAdapter(BaseWriteAdapter, MacOSMusicReadAdapter):
-    """Write song to MacOS Music application"""
+    """Write song to macOS Music application
+    This connects to macOS application running
+    """
 
     def __init__(self,
                  match_fields: Annotated[str, "match fields before updates, comma separated"] = "name,artist",
