@@ -243,8 +243,6 @@ class JsonReadAdapter(BaseReadAdapter):
     def yield_song(self) -> Iterable[BaseSong]:
         for s in self.db.all():
             yield JsonSong(**s)
-        # TODO: fix
-        ...
 
 
 class BaseWriteAdapter(ABC):

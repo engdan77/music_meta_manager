@@ -42,6 +42,7 @@ def get_adaptors(
     base_read_class=BaseReadAdapter,
     base_write_class=BaseWriteAdapter,
 ) -> Dict[AdapterType, list[Adapter]]:
+    """Return current Read and Write adapters"""
     adapters = defaultdict(list)
     for base_class in (base_read_class, base_write_class):
         sub_class: Union[BaseReadAdapter, BaseWriteAdapter]
@@ -52,11 +53,10 @@ def get_adaptors(
 
 
 def adapters_to_argparser(adapters: dict[AdapterType, list[Adapter]]) -> ArgumentParser:
-    # todo: enum for reader and writer
+    """Parse baseclasses of readers and writers and return argument parser object dynamically"""
     parser = ArgumentParser(__package__, description=__doc__)
     for adapter_type, adapters in adapters.items():
         for adapter in adapters:
-            # group = parser.add_mutually_exclusive_group()
             group = parser.add_argument_group(adapter.name)
             group.add_argument(f'--{adapter.name}', action='store_true', help=adapter.doc)
             for parameter_name, (parameter_type, parameter_help, default_arg) in adapter.args.items():
@@ -103,6 +103,7 @@ def get_adapters_in_args(adapters, args: Namespace) -> dict[AdapterType, partial
 
 
 def get_read_write_adapters(args: Namespace, adapters: dict) -> tuple[partial | None, partial | None]:
+    """From argument parser namespace return callable reader and writer"""
     adapters_by_args = get_adapters_in_args(adapters, args)
     reader = adapters_by_args.get(AdapterType.READER, None)
     writer = adapters_by_args.get(AdapterType.WRITER, None)
@@ -124,6 +125,7 @@ def get_folder_song_list(folder: str, ext='mp3') -> SongLocationList:
 
 
 def update_song_list(song_list: list[BaseSong], folder_song_list: SongLocationList) -> list[BaseSong]:
+    """Dynamically correct/broken file location based on input by searching MP3 ID3 match"""
     for s in song_list:
         new_location = folder_song_list.get((s.artist, s.name), None)
         if not new_location:
@@ -134,6 +136,7 @@ def update_song_list(song_list: list[BaseSong], folder_song_list: SongLocationLi
 
 
 def setup_logger():
+    """Setup logging to file"""
     logger.add('music_manager_{time}.log')
 
 
