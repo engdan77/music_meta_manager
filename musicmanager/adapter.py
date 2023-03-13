@@ -17,9 +17,11 @@ from tinydb_serialization.serializers import DateTimeSerializer
 from time import sleep
 
 try:
-    from typing import Iterable, Annotated, Any
+    from typing import Annotated
 except ImportError:
     from typing_extensions import Annotated
+finally:
+    from typing import Dict, Union, Callable
 
 from musicmanager.song import TunesSong, MacOSMusicSong, JsonSong, BaseSong
 

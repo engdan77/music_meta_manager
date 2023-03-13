@@ -9,9 +9,12 @@ from loguru import logger
 from . adapter import AdapterParameterError, AdapterType, Adapter, BaseReadAdapter, BaseWriteAdapter
 import music_tag
 try:
-    from typing import Dict, Union, Callable, Annotated
+    from typing import Annotated
 except ImportError:
     from typing_extensions import Annotated
+finally:
+    from typing import Dict, Union, Callable
+
 
 from musicmanager import BaseSong
 

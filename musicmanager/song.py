@@ -2,9 +2,11 @@ import datetime
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, fields
 try:
-    from typing import Dict, Annotated, Any
+    from typing import Annotated
 except ImportError:
     from typing_extensions import Annotated
+finally:
+    from typing import Dict, Union, Callable
 
 @dataclass
 class BaseSong(ABC):
