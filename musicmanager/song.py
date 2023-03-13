@@ -6,7 +6,7 @@ try:
 except ImportError:
     from typing_extensions import Annotated
 finally:
-    from typing import Dict, Union, Callable
+    from typing import Dict, Union, Callable, Any
 
 @dataclass
 class BaseSong(ABC):
