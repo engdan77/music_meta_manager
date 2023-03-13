@@ -1,0 +1,8 @@
+appdirs
+ireaditunes
+loguru
+music-tag
+python-magic
+pytunes
+pytz
+tinydb-serialization

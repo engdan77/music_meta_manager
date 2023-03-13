@@ -1,0 +1,34 @@
+flowchart BT
+
+subgraph "adapter abstraction (framework)"
+    JsonReadAdapter -. inherit .-> bra
+    jsonread[/json/] -. annotation .-> JsonReadAdapter
+    TunesReadAdapter -. inherit .-> bra
+    JsonWriteAdapter -. inherit .-> bwa
+    jsonwrite[/json/] -. annotation .-> JsonWriteAdapter
+    xml[/xml/] -. annotation .-> TunesReadAdapter
+    limit[/limit/] -. annotation .-> TunesReadAdapter
+end
+bra["BaseReadAdapter\n<< abstract >>"] -- names/annotations --> ga
+bwa["BaseWriteAdapter\n<< abstract >>"] -- names/annotations --> ga
+
+JsonWriteAdapter -. use of any\nsubclass of .-> bs["BaseSong\n<< abstract >>"]
+
+subgraph generation of CLI parameters
+    ga["get_adapters()"] --> ata["adapters_to_argparser()"]
+end
+ata --> cli(["Example\n$ music_manager --TunesReadAdapter --xml iTunes.xml --limit 50 --JsonWriteAdapter --json out.json"]) 
+
+subgraph song abstraction
+TunesReadAdapter -. use .-> TunesSong
+TunesSong -->|inherits| bs
+end
+
+style JsonReadAdapter fill:pink
+style TunesReadAdapter fill:pink
+style JsonWriteAdapter fill:pink
+style jsonread fill:pink
+style jsonwrite fill:pink
+style xml fill:pink
+style limit fill:pink
+style cli fill:yellow
