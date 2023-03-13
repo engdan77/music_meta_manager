@@ -4,11 +4,103 @@
 
 ## Background
 
-It started with a need for a framework allowing me to transfer meta-data from Apple's iTunes *(such a ⭐️ rating)* that I had backup of into the more recent  MacOS Music application. I would also like to be able to export this meta-data into a more future-proof format as JSON in case of use with a different application. Another sample use-case to use this for filtering out songs to your need, read the song file path and copy it to a device such as an MP3 player.
+It started with a need for a library/application allowing me to transfer meta-data from Apple's iTunes *(such a ⭐️ rating)* that I had backup of into the more recent  MacOS Music application. I would also like to be able to export this meta-data into a more future-proof format as JSON in case of use with a different application. Another sample use-case to use this for filtering out songs to your need, read the song file path and copy it to a device such as an MP3 player.
 
 The field names might differ between those applications and different packages exists to support <u>reading and writing interchangeably</u> between those so to allow this and at the same time make this <u>extensible</u> I found a good opportunity to write this as a <u>package</u> to fill this gap.
 
 A good opportunity to challenge me to think more about the software design to follow principles such as [SOLID](https://en.wikipedia.org/wiki/SOLID) to make the code easier to read and maintain.
+
+## Requirements
+
+- Python 3.11
+- macOS (if you wish to use the macOS Music component)
+
+## Installation
+
+For installing this as a command line application you easiest follow below steps
+
+```bash
+$ python -m pip install pipx
+$ pipx install git+https://github.com/engdan77/music_meta_manager.git
+```
+
+## Command line interface
+
+The below is to show how the parameters and help section would automatically get generated based on the above sample.
+To simplify not show all the built-in adapters.
+
+```shell
+$ music_migrate --help
+
+usage: music_migrate [-h] [--MacOSMusicReadAdapter] [--CsvReadAdapter | --csv CSV] [--CsvWriteAdapter | --csv CSV]
+
+Program for migration music meta data between different services
+
+optional arguments:
+  -h, --help               show this help message and exit
+  --MacOSMusicReadAdapter  Read from MacOS Music application
+  --CsvReadAdapter         Read from CSV
+  --read_csv CSV           [CsvReadAdapter] path to csv file
+  --CsvWriteAdapter        Write to a CSV
+  --write_csv CSV          [CsvWriteAdapter] path to csv file
+```
+
+
+
+## Current built-in support for applications/formats
+
+### Read
+
+- TunesReadAdapter
+- MacOSMusicReadAdapter
+- JsonReadAdapater
+
+### Write
+
+- JsonWriteAdapter
+
+## Sample use cases
+
+### Reading from iTunes and and write to JSON file
+
+```python
+with TunesReadAdapter(limit=3) as r, JsonWriteAdapter('my_music.json') as w:
+  for song in r:
+    print(f"Writing: {song}")
+    w.write(song)
+```
+
+#### Resulting in
+
+```
+Writing: 10,000 Maniacs - Because The Night                        1998   ⭐️⭐️⭐️⭐️
+Writing: Phil Fuldner - S-Express                                  1999   ⭐️⭐️
+Writing: Hampenberg - Last Night                                   1999   ⭐️⭐️
+```
+
+### Usage of comparison operators on songs
+
+```python
+>>> print(song)
+10,000 Maniacs - Because The Night                        1998   ⭐️⭐️⭐️⭐️
+
+>>> song >= '⭐⭐'
+True
+
+>>> song < 1996
+False
+
+>>> other_song = song
+>>> song @ other_song  # a special operator for comparing that name and album match
+True
+```
+
+### Easily filtering with help of comparison
+
+```python
+>>> [song.name for song in TunesReadAdapter() if song >= '⭐⭐⭐' and song < 2022]
+['Because The Night']
+```
 
 
 
@@ -58,17 +150,6 @@ style xml fill:pink
 style limit fill:pink
 style cli fill:yellow
 ```
-
-
-
-## Current built-in support for applications/formats
-
-### Read
-- TunesReadAdapter
-- MacOSMusicReadAdapter
-
-### Write
-- JsonWriteAdapter
 
 
 
@@ -167,74 +248,6 @@ class CsvReadAdapter(BaseReadAdapter):
             for line in csv.reader(f, delimiter='\t'):
                 next_song = dict(zip(self.local_field, line))
                 yield(CsvSong(**next_song))
-```
-
-
-
-## Command line interface
-
-The below is to show how the parameters and help section would automatically get generated based on the above sample.
-To simplify not show all the built-in adapters.
-
-```shell
-$ mmm --help
-
-usage: mmm [-h] [--MacOSMusicReadAdapter] [--CsvReadAdapter | --csv CSV] [--CsvWriteAdapter | --csv CSV]
-
-Program for migration music meta data between different services
-
-optional arguments:
-  -h, --help               show this help message and exit
-  --MacOSMusicReadAdapter  Read from MacOS Music application
-  --CsvReadAdapter         Read from CSV
-  --read_csv CSV           [CsvReadAdapter] path to csv file
-  --CsvWriteAdapter        Write to a CSV
-  --write_csv CSV          [CsvWriteAdapter] path to csv file
-```
-
-
-
-## Sample use cases
-
-### Reading from iTunes and and write to JSON file
-
-```python
-with TunesReadAdapter(limit=3) as r, JsonWriteAdapter('my_music.json') as w:
-  for song in r:
-    print(f"Writing: {song}")
-    w.write(song)
-```
-
-#### Resulting in
-
-```
-Writing: 10,000 Maniacs - Because The Night                        1998   ⭐️⭐️⭐️⭐️
-Writing: Phil Fuldner - S-Express                                  1999   ⭐️⭐️
-Writing: Hampenberg - Last Night                                   1999   ⭐️⭐️
-```
-
-### Usage of comparison operators on songs
-
-```python
->>> print(song)
-10,000 Maniacs - Because The Night                        1998   ⭐️⭐️⭐️⭐️
-
->>> song >= '⭐⭐'
-True
-
->>> song < 1996
-False
-
->>> other_song = song
->>> song @ other_song  # a special operator for comparing that name and album match
-True
-```
-
-### Easily filtering with help of comparison
-
-```python
->>> [song.name for song in TunesReadAdapter() if song >= '⭐⭐⭐' and song < 2022]
-['Because The Night']
 ```
 
 
