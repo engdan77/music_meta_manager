@@ -8,3 +8,4 @@ pytunes
 pytz
 tinydb-serialization
 typing-extensions
+python-console-explorer
