@@ -6,3 +6,4 @@ python-magic
 pytunes
 pytz
 tinydb-serialization
+typing-extensions
