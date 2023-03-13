@@ -8,7 +8,9 @@ It started with a need for a library/application allowing me to transfer meta-da
 
 The field names might differ between those applications and different packages exists to support <u>reading and writing interchangeably</u> between those so to allow this and at the same time make this <u>extensible</u> I found a good opportunity to write this as a <u>package</u> to fill this gap.
 
-A good opportunity to challenge me to think more about the software design to follow principles such as [SOLID](https://en.wikipedia.org/wiki/SOLID) to make the code easier to read and maintain.
+A good opportunity to challenge me to think more about the software design to follow principles such as [SOLID](https://en.wikipedia.org/wiki/SOLID) to make the code easier to read and maintain. 
+
+This package is designed to make it easy for developers to extend with additional formats thanks to [abstract base classes](https://wiki.python.org/moin/AbstractBaseClasses) documented further down. And also use some ✨magic✨ to allow command line help and arguments to reflect automatically based on your formats defined to easier follow [DRY](https://en.wikipedia.org/wiki/Don%27t_repeat_yourself) principles more. And using some interesting aspects such as [operator overloading](https://en.wikipedia.org/wiki/Operator_overloading) that allows easier sorting and comparison operations have been used. 
 
 ## Use cases
 
