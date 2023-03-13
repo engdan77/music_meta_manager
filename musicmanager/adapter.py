@@ -5,9 +5,7 @@ from dataclasses import dataclass, asdict
 from datetime import time
 from enum import Enum, auto
 from pathlib import Path
-from typing import Iterable, Annotated, Any
 from xml.etree import ElementTree as ET
-
 import appdirs
 import appscript.reference
 import pytunes
@@ -16,8 +14,12 @@ from pytunes.client import Client
 from tinydb import JSONStorage, TinyDB
 from tinydb_serialization import SerializationMiddleware
 from tinydb_serialization.serializers import DateTimeSerializer
-from pynput.keyboard import Key, Controller
 from time import sleep
+
+try:
+    from typing import Iterable, Annotated, Any
+except ImportError:
+    from typing_extensions import Annotated
 
 from musicmanager.song import TunesSong, MacOSMusicSong, JsonSong, BaseSong
 

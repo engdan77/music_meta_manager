@@ -3,12 +3,15 @@ import inspect
 from argparse import ArgumentParser, Namespace
 from collections import defaultdict
 from functools import partial
-from typing import Dict, Union, Callable, Tuple, Annotated
 from console_explorer import browse_for_folder
 from pathlib import Path
 from loguru import logger
 from . adapter import AdapterParameterError, AdapterType, Adapter, BaseReadAdapter, BaseWriteAdapter
 import music_tag
+try:
+    from typing import Dict, Union, Callable, Annotated
+except ImportError:
+    from typing_extensions import Annotated
 
 from musicmanager import BaseSong
 

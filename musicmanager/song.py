@@ -1,8 +1,10 @@
 import datetime
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, fields
-from typing import Dict, Annotated, Any
-
+try:
+    from typing import Dict, Annotated, Any
+except ImportError:
+    from typing_extensions import Annotated
 
 @dataclass
 class BaseSong(ABC):
