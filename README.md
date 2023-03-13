@@ -1,26 +1,26 @@
 # Music Meta Manager
 
-
+[![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/downloads/release/python-311/)
 
 ## Background
 
-It started with a need for a framework allowing me transferring meta-data from Apple's iTunes *(such a ⭐️ rating)* that I had backup of into the more recent  MacOS Music application. I would also like to be able to export this meta-data into a more future-proof format as JSON in case of use with a different application. Another sample use-case to use this for filtering out songs to your need, read the songs filepath and copy to a device such as an MP3-player.
+It started with a need for a framework allowing me to transfer meta-data from Apple's iTunes *(such a ⭐️ rating)* that I had backup of into the more recent  MacOS Music application. I would also like to be able to export this meta-data into a more future-proof format as JSON in case of use with a different application. Another sample use-case to use this for filtering out songs to your need, read the song file path and copy it to a device such as an MP3 player.
 
-The field names might differ between those applications and different packages exists to support <u>reading and writing interchangeably</u> between those so to allow this and at the same time making this <u>extensible</u> I found a good oportunity to write this as a <u>package</u> to fill this gap.
+The field names might differ between those applications and different packages exists to support <u>reading and writing interchangeably</u> between those so to allow this and at the same time make this <u>extensible</u> I found a good opportunity to write this as a <u>package</u> to fill this gap.
 
-A good oportunity to challenge myself thinking more of the software design to follow principles such as [SOLID](https://en.wikipedia.org/wiki/SOLID) to make the code easier to read and maintain.
+A good opportunity to challenge me to think more about the software design to follow principles such as [SOLID](https://en.wikipedia.org/wiki/SOLID) to make the code easier to read and maintain.
 
 
 
 ## Software design
 
-Following a form of [bridge-pattern](https://en.wikipedia.org/wiki/Bridge_pattern) that allows us abstracting the application *(adapter)* class the field-definition *(song)*  to easier add support for additional application and song structures. Built into this package also support to be used as a <u>command-line tool</u> for easily transferring songs across applications or files.
+Following a form of [bridge-pattern](https://en.wikipedia.org/wiki/Bridge_pattern) that allows us to abstract the application *(adapter)* class the field-definition *(song)*  to easier add support for additional applications and song structures. Built into this package also supports being used as a <u>command-line tool</u> for easily transferring songs across applications or files.
 
-Thanks to using *abstract base classes*, *type annotations* and *docstrings* allow <u>automatic generation of the parameters</u> thanks to some of the clever mechanics within Python.
+Thanks to using *abstract base classes*, *type annotations* and *docstrings* allow the <u>automatic generation of the parameters</u> thanks to some of the clever mechanics within Python.
 
 Also adding some basic [operator overloading](https://en.wikipedia.org/wiki/Operator_overloading) for comparison and filtering purposes of songs.
 
-This below is how I would visualise the software design and further down in this documentation you will also find a more complete class-diagaram.
+Below is how I would visualize the software design and further down in this documentation you will also find a more complete class-diagram.
 
 ```mermaid
 flowchart BT
@@ -59,7 +59,7 @@ style limit fill:pink
 style cli fill:yellow
 ```
 
-### 
+
 
 ## Current built-in support for applications/formats
 
@@ -74,13 +74,13 @@ style cli fill:yellow
 
 ## Tutorial - User Guide
 
-Below we'll take you through a sample where would add an additional CSV writer and reader for songs meta data e.g. to be transferred to MacOS Music application.
+Below we'll take you through a sample where would add an additional CSV writer and reader for song meta data e.g. to be transferred to the MacOS Music application.
 
 ### Create a custom Song class
 
-This is to be used together with your ReadAdapter or WriteAdapter by inherit BaseSong and implements the abstract methods with its main responsibility
+This is to be used together with your ReadAdapter or WriteAdapter by inheriting BaseSong and implementing the abstract methods with its main responsibility
 
-- Normalize the fieldname in that application interchangable with BaseSong
+- Normalize the field name in that application interchangeable with BaseSong
 - Convert string representation of datetime used for e.g. "created"
 
 ```python
@@ -169,12 +169,12 @@ class CsvReadAdapter(BaseReadAdapter):
                 yield(CsvSong(**next_song))
 ```
 
-### 
+
 
 ## Command line interface
 
-The below below is to show how the parameters and help section would automatically get generated based on above sample.
-To simplify not showing all the built in adapters.
+The below is to show how the parameters and help section would automatically get generated based on the above sample.
+To simplify not show all the built-in adapters.
 
 ```shell
 $ mmm --help
@@ -352,3 +352,13 @@ MacOSMusicReadAdapter *-- MacOSMusicSong : returns songs
 MacOSMusicReadAdapter --> Client : read songs
 MacOSMusicReadAdapter --|> BaseReadAdapter : implements
 ```
+
+## Credit to other packages
+
+- [appdirs](https://github.com/ActiveState/appdirs)
+- [iReadiTunes](https://github.com/mickael2054/IReadiTunes)
+- [pytunes](https://github.com/hile/pytunes/)
+- [tinydb](https://pypi.org/project/tinydb/) and [tinydb-serialization](https://pypi.org/project/tinydb-serialization/)
+- [music-tag](https://github.com/KristoforMaynard/music-tag)
+- [loguru](https://github.com/Delgan/loguru)
+
