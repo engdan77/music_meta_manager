@@ -2,10 +2,11 @@ import json
 import os
 from abc import ABCMeta, ABC, abstractmethod
 from dataclasses import dataclass, asdict
-from datetime import time
 from enum import Enum, auto
 from pathlib import Path
+from time import sleep
 from xml.etree import ElementTree as ET
+
 import appdirs
 import appscript.reference
 import pytunes
@@ -14,14 +15,13 @@ from pytunes.client import Client
 from tinydb import JSONStorage, TinyDB
 from tinydb_serialization import SerializationMiddleware
 from tinydb_serialization.serializers import DateTimeSerializer
-from time import sleep
 
 try:
     from typing import Annotated
 except ImportError:
     from typing_extensions import Annotated
 finally:
-    from typing import Dict, Union, Callable, Any
+    from typing import Dict, Union, Callable, Any, Iterable
 
 from musicmanager.song import TunesSong, MacOSMusicSong, JsonSong, BaseSong
 
@@ -65,7 +65,7 @@ class BaseReadAdapter(ABC):
     adapter_type = AdapterType.READER
 
     def __enter__(self):
-        """Context mananager"""
+        """Context manager"""
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -199,7 +199,8 @@ class MacOSMusicReadAdapter(BaseReadAdapter):
             self.escape_error_window()
             self.save_index_reference_to_file(index)
 
-    def escape_error_window(self, delay_secs=2):
+    @staticmethod
+    def escape_error_window(delay_secs=2):
         os.system("osascript -e 'tell application \"System Events\" to key code 53'")  # send escape
         sleep(delay_secs)
 

@@ -1,12 +1,14 @@
 import datetime
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, fields
+
 try:
     from typing import Annotated
 except ImportError:
     from typing_extensions import Annotated
 finally:
     from typing import Dict, Union, Callable, Any
+
 
 @dataclass
 class BaseSong(ABC):
@@ -65,14 +67,14 @@ class BaseSong(ABC):
         return False
 
     def __init__(
-        self, **kwargs: Dict[Annotated[str, "Song field"], Annotated[Any, "Value"]]
+            self, **kwargs: Dict[Annotated[str, "Song field"], Annotated[Any, "Value"]]
     ):
         for k, v in kwargs.items():
             if not (normalized_field := self.normalize_field(k)):
                 normalized_field = k
             if normalized_field not in (
-                _.name if not _.name.startswith("_") else _.name[1:]
-                for _ in fields(self)
+                    _.name if not _.name.startswith("_") else _.name[1:]
+                    for _ in fields(self)
             ):
                 continue
             casted_value = self._cast(normalized_field, v)
@@ -81,7 +83,8 @@ class BaseSong(ABC):
             setattr(self, normalized_field, casted_value)
 
     def _cast(self, field_, value):
-        if func := next((_.type for _ in fields(self) if _.name in [field_, f'_{field_}']), None):  # check also private field
+        if func := next((_.type for _ in fields(self) if _.name in [field_, f'_{field_}']),
+                        None):  # check also private field
             if not callable(func) and isinstance(func, str):
                 func = getattr(self, func)
             return func(value)
@@ -108,7 +111,7 @@ class BaseSong(ABC):
     @staticmethod
     @abstractmethod
     def normalize_field(
-        foreign_field_name: Annotated[str, "Field name to be converted"]
+            foreign_field_name: Annotated[str, "Field name to be converted"]
     ) -> Annotated[str, "Dataclass field name"]:
         """
         Take foreign field name and map to field in dataclass.
@@ -118,7 +121,7 @@ class BaseSong(ABC):
     @staticmethod
     @abstractmethod
     def normalize_datetime(
-        foreign_datetime: Annotated[str, "Datetime text to be converted"]
+            foreign_datetime: Annotated[str, "Datetime text to be converted"]
     ) -> datetime.datetime:
         """
         Take string and turn this into datetime.
@@ -129,7 +132,7 @@ class BaseSong(ABC):
 class TunesSong(BaseSong):
     @staticmethod
     def normalize_field(
-        foreign_field_name: Annotated[str, "Field name to be converted"]
+            foreign_field_name: Annotated[str, "Field name to be converted"]
     ) -> Annotated[str, "Dataclass field name"]:
         fk = foreign_field_name.lower().replace(" ", "_")
         t = {"play_count": "played_count"}
@@ -137,7 +140,7 @@ class TunesSong(BaseSong):
 
     @staticmethod
     def normalize_datetime(
-        foreign_datetime: Annotated[str, "Datetime text to be converted"]
+            foreign_datetime: Annotated[str, "Datetime text to be converted"]
     ) -> datetime.datetime:
         return datetime.datetime.strptime(foreign_datetime, "%Y-%m-%dT%H:%M:%SZ")
 
@@ -145,13 +148,13 @@ class TunesSong(BaseSong):
 class MacOSMusicSong(BaseSong):
     @staticmethod
     def normalize_field(
-        foreign_field_name: Annotated[str, "Field name to be converted"]
+            foreign_field_name: Annotated[str, "Field name to be converted"]
     ) -> Annotated[str, "Dataclass field name"]:
         pass
 
     @staticmethod
     def normalize_datetime(
-        foreign_datetime: Annotated[str, "Datetime text to be converted"]
+            foreign_datetime: Annotated[str, "Datetime text to be converted"]
     ) -> datetime.datetime:
         pass
 
