@@ -10,6 +10,13 @@ The field names might differ between those applications and different packages e
 
 A good opportunity to challenge me to think more about the software design to follow principles such as [SOLID](https://en.wikipedia.org/wiki/SOLID) to make the code easier to read and maintain.
 
+## Use cases
+
+- Dump all music "meta" data from specific sources for backup purposes
+- Update another target with such data that could easily be manipulated using e.g. JSON
+- Develop custom Python code for e.g. *"get me file paths of songs more recent than 2 years and has more than 3 stars as rating"*
+- Compare and analyse songs from different sources
+
 ## Requirements
 
 - Python 3.11
@@ -17,7 +24,7 @@ A good opportunity to challenge me to think more about the software design to fo
 
 ## Installation
 
-For installing this as a command line application you easiest follow below steps
+For installing this as a command line application you easiest follow the below steps
 
 ```bash
 $ python -m pip install pipx
@@ -29,20 +36,51 @@ $ pipx install git+https://github.com/engdan77/music_meta_manager.git
 The below is to show how the parameters and help section would automatically get generated based on the above sample.
 To simplify not show all the built-in adapters.
 
+#### Migrating music metadata between services and formats
+
 ```shell
 $ music_migrate --help
 
-usage: music_migrate [-h] [--MacOSMusicReadAdapter] [--CsvReadAdapter | --csv CSV] [--CsvWriteAdapter | --csv CSV]
+usage: music_migrate [-h] [--TunesReadAdapter] [--xml XML] [--limit LIMIT] [--MacOSMusicReadAdapter] [--JsonReadAdapter] [--json_read JSON_READ] [--JsonWriteAdapter] [--json_write JSON_WRITE]
+                    [--MacOSMusicWriteAdapter] [--match_fields MATCH_FIELDS] [--exclude_fields EXCLUDE_FIELDS]
 
-Program for migration music meta data between different services
+options:
+  -h, --help            show this help message and exit
 
-optional arguments:
-  -h, --help               show this help message and exit
-  --MacOSMusicReadAdapter  Read from MacOS Music application
-  --CsvReadAdapter         Read from CSV
-  --read_csv CSV           [CsvReadAdapter] path to csv file
-  --CsvWriteAdapter        Write to a CSV
-  --write_csv CSV          [CsvWriteAdapter] path to csv file
+TunesReadAdapter:
+  --TunesReadAdapter    Read from iTunes Reads from XML
+  --xml XML             [TunesReadAdapter] xml file from iTunes (default: /Users/edo/Music/backup/iTunes Library.xml)
+  --limit LIMIT         [TunesReadAdapter] limit to number of songs (default: 0)
+
+MacOSMusicReadAdapter:
+  --MacOSMusicReadAdapter
+                        Read from macOS Music application This connects to macOS application running
+
+JsonReadAdapter:
+  --JsonReadAdapter     Read from JSON
+  --json_read JSON_READ
+                        [JsonReadAdapter] json file (default: /tmp/music.json)
+
+JsonWriteAdapter:
+  --JsonWriteAdapter    Write to JSON
+  --json_write JSON_WRITE
+                        [JsonWriteAdapter] json file (default: /tmp/music.json)
+
+MacOSMusicWriteAdapter:
+  --MacOSMusicWriteAdapter
+                        Write song to macOS Music application This connects to macOS application running
+  --match_fields MATCH_FIELDS
+                        [MacOSMusicWriteAdapter] match fields before updates, comma separated (default: name,artist)
+  --exclude_fields EXCLUDE_FIELDS
+                        [MacOSMusicWriteAdapter] which fields to exclude, comma separated (default: none)
+```
+
+#### Fixing path location
+
+This uses the same arguments as migrating with the difference that it will bring up a "folder browser" that allows you to specify which folder you should allow the application to search for the "correct" file path to update the "location" field for each MP3.
+
+```bash
+$ music_fix_location --help
 ```
 
 
@@ -61,7 +99,7 @@ optional arguments:
 
 ## Sample use cases
 
-### Reading from iTunes and and write to JSON file
+### Reading data from iTunes and writing to JSON file
 
 ```python
 with TunesReadAdapter(limit=3) as r, JsonWriteAdapter('my_music.json') as w:
@@ -153,9 +191,9 @@ style cli fill:yellow
 
 
 
-## Tutorial - User Guide
+## Tutorial - User Guide for developers
 
-Below we'll take you through a sample where would add an additional CSV writer and reader for song meta data e.g. to be transferred to the MacOS Music application.
+Below we'll take you through a sample where would add an additional CSV writer and reader for song metadata e.g. to be transferred to the MacOS Music application.
 
 ### Create a custom Song class
 
