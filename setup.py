@@ -5,7 +5,7 @@ with open("requirements.txt") as f:
 
 setup(
     name='music_meta_manager',
-    version='0.0.3',
+    version='0.0.4',
     packages=['musicmanager'],
     url='',
     license='',
