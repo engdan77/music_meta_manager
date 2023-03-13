@@ -3,6 +3,7 @@ ireaditunes
 loguru
 music-tag
 python-magic
+python-magic-bin
 pytunes
 pytz
 tinydb-serialization
